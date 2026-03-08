@@ -2,3 +2,16 @@
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+*.iml
+
+# IDE
+.idea/
+
+# Miscellaneous
+.DS_Store
+*.swp
