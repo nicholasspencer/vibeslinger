@@ -43,7 +43,7 @@ class ContextBar extends StatelessWidget {
           const SizedBox(height: 2),
           Row(
             children: [
-              _legend(const Color(0xFF4488CC), 'System ${(contextWindow.systemLoad * 100).toStringAsFixed(0)}%'),
+              _legend(const Color(0xFF3366AA), 'System ${(contextWindow.systemLoad * 100).toStringAsFixed(0)}%'),
               const SizedBox(width: 12),
               _legend(
                 contextWindow.isCompacted ? const Color(0xFF2A8855) : const Color(0xFF44CC88),
