@@ -1,25 +1,31 @@
+// lib/widgets/planning_controls.dart
 import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import '../models/planning.dart';
+import '../models/tool.dart';
 
 class PlanningControls extends StatelessWidget {
   final GameState state;
-  final VoidCallback? onActionStarted;
+  final VoidCallback? onSubagentScoutStarted;
 
   const PlanningControls({
     super.key,
     required this.state,
-    this.onActionStarted,
+    this.onSubagentScoutStarted,
   });
 
   @override
   Widget build(BuildContext context) {
     final planning = state.planning;
     final isPlanning = planning.isPlanning;
+    final isExecuting = planning.isExecutingAction;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
       children: [
+        // Plan mode toggle
         ElevatedButton.icon(
           onPressed: () => state.togglePlanning(),
           icon: Icon(isPlanning ? Icons.pause : Icons.psychology),
@@ -32,62 +38,134 @@ class PlanningControls extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
         ),
-        const SizedBox(width: 12),
-        _actionButton(
+        // Aim
+        _planButton(
           icon: Icons.gps_fixed,
           label: 'Aim (A)',
-          action: PlanningAction.aim,
-          enabled: isPlanning && !planning.isExecutingAction && !state.contextWindow.isNearFull,
+          enabled: isPlanning && !isExecuting && !state.contextWindow.isNearFull,
           color: Colors.cyan,
-          costLabel: '-${(planning.contextCostFor(PlanningAction.aim) * 100).toStringAsFixed(0)}% ctx',
-          benefitLabel: 'Focus',
+          tooltip: '-5% ctx / Focus',
+          onPressed: () => state.executePlanningAction(PlanningAction.aim),
         ),
-        const SizedBox(width: 8),
-        _actionButton(
+        // Direct Scout
+        _planButton(
           icon: Icons.visibility,
           label: 'Scout (S)',
-          action: PlanningAction.directScout,
-          enabled: isPlanning && !planning.isExecutingAction && !state.contextWindow.isNearFull,
+          enabled: isPlanning && !isExecuting && !state.contextWindow.isNearFull,
           color: Colors.teal,
-          costLabel: '-${(planning.contextCostFor(PlanningAction.directScout) * 100).toStringAsFixed(0)}% ctx',
-          benefitLabel: 'Negate 1 env',
+          tooltip: '-8% ctx / Negate 1 env (instant)',
+          onPressed: () => state.executePlanningAction(PlanningAction.directScout),
         ),
-        const SizedBox(width: 8),
-        _actionButton(
+        // Subagent Scout
+        _planButton(
           icon: Icons.smart_toy,
-          label: 'Subagent (L)',
-          action: PlanningAction.subagentScout,
-          enabled: isPlanning && !state.contextWindow.isNearFull,
-          color: Colors.lime,
-          costLabel: '-${(planning.contextCostFor(PlanningAction.subagentScout) * 100).toStringAsFixed(0)}% ctx',
-          benefitLabel: 'Async scout',
+          label: 'Subagent (D)',
+          enabled: isPlanning && !isExecuting && !state.contextWindow.isNearFull,
+          color: Colors.tealAccent,
+          tooltip: '-3% ctx / Negate 1 env (~3s delay)',
+          onPressed: () {
+            final success = state.startSubagentScout();
+            if (success) {
+              onSubagentScoutStarted?.call();
+            }
+          },
+        ),
+        // Tools (Load)
+        _ToolsMenuButton(state: state, enabled: isPlanning && !isExecuting),
+        // Compact (always available)
+        _planButton(
+          icon: Icons.compress,
+          label: 'Compact (X)',
+          enabled: state.contextWindow.userLoad > 0,
+          color: Colors.deepOrange,
+          tooltip: 'Compress user space ~60% (lossy)',
+          onPressed: () => state.compact(),
         ),
       ],
     );
   }
 
-  Widget _actionButton({
+  Widget _planButton({
     required IconData icon,
     required String label,
-    required PlanningAction action,
     required bool enabled,
     required Color color,
-    required String costLabel,
-    required String benefitLabel,
+    required String tooltip,
+    required VoidCallback onPressed,
   }) {
     return Tooltip(
-      message: '$costLabel / $benefitLabel',
+      message: tooltip,
       child: ElevatedButton.icon(
-        onPressed: enabled
-            ? () {
-                state.executePlanningAction(action);
-                onActionStarted?.call();
-              }
-            : null,
+        onPressed: enabled ? onPressed : null,
         icon: Icon(icon, size: 16),
         label: Text(label, style: const TextStyle(fontSize: 12)),
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled ? color.withValues(alpha: 0.5) : null,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolsMenuButton extends StatelessWidget {
+  final GameState state;
+  final bool enabled;
+
+  const _ToolsMenuButton({required this.state, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    final loadedCount = state.loadedTools.length;
+    return PopupMenuButton<ToolType>(
+      enabled: enabled,
+      tooltip: 'Load/unload tools (L)',
+      offset: const Offset(0, -200),
+      color: const Color(0xFF2A2A4E),
+      onSelected: (type) {
+        if (state.loadedTools.contains(type)) {
+          state.unloadTool(type);
+        } else {
+          state.loadTool(type);
+        }
+      },
+      itemBuilder: (context) => Tool.all.map((tool) {
+        final isLoaded = state.loadedTools.contains(tool.type);
+        return PopupMenuItem(
+          value: tool.type,
+          child: Row(
+            children: [
+              Icon(
+                isLoaded ? Icons.check_box : Icons.check_box_outline_blank,
+                color: isLoaded ? Colors.lime : Colors.white54,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(tool.name, style: const TextStyle(color: Colors.white)),
+                    Text(
+                      '${(tool.systemCost * 100).toStringAsFixed(0)}% system • ${tool.passiveBenefit}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      child: ElevatedButton.icon(
+        onPressed: enabled ? null : null, // PopupMenuButton handles tap
+        icon: const Icon(Icons.build, size: 16),
+        label: Text('Tools (L) ${loadedCount > 0 ? "[$loadedCount]" : ""}',
+            style: const TextStyle(fontSize: 12)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: enabled ? Colors.lime.withValues(alpha: 0.5) : null,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),

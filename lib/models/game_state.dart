@@ -194,6 +194,15 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool startSubagentScout() {
+    final success = executePlanningAction(PlanningAction.subagentScout);
+    if (success) {
+      _planning.setExecutingAction(true);
+      notifyListeners();
+    }
+    return success;
+  }
+
   void completeSubagentScout() {
     _planning.applySubagentScoutResult();
     _planning.setExecutingAction(false);

@@ -82,6 +82,14 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
     _rapidFireTimer?.cancel();
   }
 
+  void _startSubagentScoutTimer() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        widget.state.completeSubagentScout();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -106,7 +114,13 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               if (key == LogicalKeyboardKey.keyP) widget.state.togglePlanning();
               if (key == LogicalKeyboardKey.keyA) widget.state.executePlanningAction(PlanningAction.aim);
               if (key == LogicalKeyboardKey.keyS) widget.state.executePlanningAction(PlanningAction.directScout);
-              if (key == LogicalKeyboardKey.keyL) widget.state.executePlanningAction(PlanningAction.subagentScout);
+              if (key == LogicalKeyboardKey.keyD) {
+                final success = widget.state.startSubagentScout();
+                if (success) {
+                  _startSubagentScoutTimer();
+                }
+              }
+              if (key == LogicalKeyboardKey.keyX) widget.state.compact();
             }
           },
           child: Column(
@@ -179,7 +193,10 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: PlanningControls(state: widget.state),
+                child: PlanningControls(
+                  state: widget.state,
+                  onSubagentScoutStarted: _startSubagentScoutTimer,
+                ),
               ),
               // Fire buttons
               Padding(
@@ -225,7 +242,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Space: Fire | P: Plan | A/S/L: Aim/Scout/Load | 1-4: Scenes | 0: Free Play | C: Clear',
+                  'Space: Fire | P: Plan | A: Aim | S: Scout | D: Subagent | L: Tools | X: Compact | 1-4: Scenes | 0: Free Play | C: Clear',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
