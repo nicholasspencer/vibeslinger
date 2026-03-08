@@ -206,6 +206,14 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                   ],
                 ),
               ),
+              // Keyboard shortcut hints
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Space: Fire | 1-3: Scenes | 0: Free Play | C: Clear',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ),
             ],
           ),
         );
