@@ -45,8 +45,6 @@ class ContextBar extends StatelessWidget {
             children: [
               _legend(const Color(0xFF4488CC), 'System ${(contextWindow.systemLoad * 100).toStringAsFixed(0)}%'),
               const SizedBox(width: 12),
-              _legend(const Color(0xFFCCA844), 'Buffer ${(contextWindow.bufferLoad * 100).toStringAsFixed(0)}%'),
-              const SizedBox(width: 12),
               _legend(
                 contextWindow.isCompacted ? const Color(0xFF2A8855) : const Color(0xFF44CC88),
                 'User ${(contextWindow.userLoad * 100).toStringAsFixed(0)}%',
@@ -118,14 +116,6 @@ class _ContextBarPainter extends CustomPainter {
       Paint()..color = const Color(0xFF4488CC).withValues(alpha: 0.7),
     );
     x += systemWidth;
-
-    // Buffer (amber)
-    final bufferWidth = size.width * contextWindow.bufferLoad;
-    canvas.drawRect(
-      Rect.fromLTWH(x, 0, bufferWidth, size.height),
-      Paint()..color = const Color(0xFFCCA844).withValues(alpha: 0.7),
-    );
-    x += bufferWidth;
 
     // User (green — desaturated if compacted)
     final userWidth = size.width * contextWindow.userLoad;

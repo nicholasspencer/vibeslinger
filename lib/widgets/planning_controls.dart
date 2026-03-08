@@ -47,28 +47,11 @@ class PlanningControls extends StatelessWidget {
           tooltip: '-5% ctx / Focus',
           onPressed: () => state.executePlanningAction(PlanningAction.aim),
         ),
-        // Direct Scout
-        _planButton(
-          icon: Icons.visibility,
-          label: 'Scout (S)',
+        // Scout menu
+        _ScoutMenuButton(
+          state: state,
           enabled: isPlanning && !isExecuting && !state.contextWindow.isNearFull,
-          color: Colors.teal,
-          tooltip: '-8% ctx / Negate 1 env (instant)',
-          onPressed: () => state.executePlanningAction(PlanningAction.directScout),
-        ),
-        // Subagent Scout
-        _planButton(
-          icon: Icons.smart_toy,
-          label: 'Subagent (D)',
-          enabled: isPlanning && !isExecuting && !state.contextWindow.isNearFull,
-          color: Colors.tealAccent,
-          tooltip: '-3% ctx / Negate 1 env (~3s delay)',
-          onPressed: () {
-            final success = state.startSubagentScout();
-            if (success) {
-              onSubagentScoutStarted?.call();
-            }
-          },
+          onSubagentScoutStarted: onSubagentScoutStarted,
         ),
         // Tools (Load)
         _ToolsMenuButton(state: state, enabled: isPlanning && !isExecuting),
@@ -101,6 +84,94 @@ class PlanningControls extends StatelessWidget {
         label: Text(label, style: const TextStyle(fontSize: 12)),
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled ? color.withValues(alpha: 0.5) : null,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScoutMenuButton extends StatelessWidget {
+  final GameState state;
+  final bool enabled;
+  final VoidCallback? onSubagentScoutStarted;
+
+  const _ScoutMenuButton({
+    required this.state,
+    required this.enabled,
+    this.onSubagentScoutStarted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<PlanningAction>(
+      enabled: enabled,
+      tooltip: 'Scout modes (S)',
+      offset: const Offset(0, -120),
+      color: const Color(0xFF2A2A4E),
+      onSelected: (action) {
+        if (action == PlanningAction.directScout) {
+          state.executePlanningAction(PlanningAction.directScout);
+        } else if (action == PlanningAction.subagentScout) {
+          final success = state.startSubagentScout();
+          if (success) {
+            onSubagentScoutStarted?.call();
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: PlanningAction.directScout,
+          child: Row(
+            children: [
+              const Icon(Icons.visibility, color: Colors.teal, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Direct', style: TextStyle(color: Colors.white)),
+                    Text(
+                      '${(state.planning.contextCostFor(PlanningAction.directScout) * 100).toStringAsFixed(0)}% user ctx • Negate 1 env (instant)',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: PlanningAction.subagentScout,
+          child: Row(
+            children: [
+              const Icon(Icons.smart_toy, color: Colors.tealAccent, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Subagent', style: TextStyle(color: Colors.white)),
+                    Text(
+                      '${(state.planning.contextCostFor(PlanningAction.subagentScout) * 100).toStringAsFixed(0)}% user ctx • Negate 1 env (~3s delay)',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: ElevatedButton.icon(
+        onPressed: enabled ? null : null, // PopupMenuButton handles tap
+        icon: const Icon(Icons.visibility, size: 16),
+        label: const Text('Scout (S)', style: TextStyle(fontSize: 12)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: enabled ? Colors.teal.withValues(alpha: 0.5) : null,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),

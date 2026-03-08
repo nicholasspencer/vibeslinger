@@ -242,7 +242,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Space: Fire | P: Plan | A: Aim | S: Scout | D: Subagent | L: Tools | X: Compact | 1-4: Scenes | 0: Free Play | C: Clear',
+                  'Space: Fire | P: Plan | A: Aim | S: Scout | D: Subagent | X: Compact | 1-4: Scenes | 0: Free Play | C: Clear',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
