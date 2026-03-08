@@ -42,17 +42,15 @@ class _GunslingerScreenState extends State<GunslingerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListenableBuilder(
-        listenable: _gameState,
-        builder: (context, _) {
-          return Column(
-            children: [
-              ControlPanel(state: _gameState),
-              const Divider(color: Colors.white24),
-              Expanded(child: GameCanvas(state: _gameState)),
-            ],
-          );
-        },
+      body: Column(
+        children: [
+          ListenableBuilder(
+            listenable: _gameState,
+            builder: (context, _) => ControlPanel(state: _gameState),
+          ),
+          const Divider(color: Colors.white24),
+          Expanded(child: GameCanvas(state: _gameState)),
+        ],
       ),
     );
   }

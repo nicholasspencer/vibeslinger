@@ -18,6 +18,7 @@ class GameCanvas extends StatefulWidget {
 class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
   late AnimationController _wobbleController;
   late AnimationController _laserController;
+  late FocusNode _focusNode;
   Timer? _cooldownTimer;
   Timer? _rapidFireTimer;
   bool _isRapidFiring = false;
@@ -25,6 +26,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode()..requestFocus();
 
     _wobbleController = AnimationController(
       vsync: this,
@@ -49,6 +51,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _wobbleController.dispose();
     _laserController.dispose();
     _cooldownTimer?.cancel();
@@ -81,11 +84,10 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
       listenable: Listenable.merge([
         widget.state,
         _wobbleController,
-        _laserController,
       ]),
       builder: (context, _) {
         return KeyboardListener(
-          focusNode: FocusNode()..requestFocus(),
+          focusNode: _focusNode,
           autofocus: true,
           onKeyEvent: (event) {
             if (event is KeyDownEvent) {
