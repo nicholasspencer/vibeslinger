@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../models/context_window.dart';
 import '../models/gun.dart';
+import 'backpack_painter.dart';
 
 class StickFigurePainter extends CustomPainter {
   final double skillLevel; // 0.0 to 1.0
   final Gun gun;
+  final ContextWindow contextWindow;
   final bool isWindy;
   final bool isLowLight;
   final bool isUnstable;
@@ -13,6 +16,7 @@ class StickFigurePainter extends CustomPainter {
   StickFigurePainter({
     required this.skillLevel,
     required this.gun,
+    required this.contextWindow,
     this.isWindy = false,
     this.isLowLight = false,
     this.isUnstable = false,
@@ -28,7 +32,8 @@ class StickFigurePainter extends CustomPainter {
     // Calculate wobble based on skill and conditions
     final wobbleAmount = (1.0 - skillLevel) * 8.0 +
         (isWindy ? 4.0 : 0.0) +
-        (isUnstable ? 5.0 : 0.0);
+        (isUnstable ? 5.0 : 0.0) +
+        contextWindow.loadWobblePenalty * 6.0;
     final wobbleX = sin(wobblePhase * 3) * wobbleAmount * scale;
     final wobbleY = sin(wobblePhase * 2.3) * wobbleAmount * 0.3 * scale;
 
@@ -66,10 +71,13 @@ class StickFigurePainter extends CustomPainter {
       );
     }
 
+    // Hunch from context load
+    final hunchOffset = contextWindow.loadWobblePenalty * 8.0 * scale;
+
     // Neck to body
     final neckBottom = Offset(
       centerX + wobbleX * 0.8 + leanX * 0.8,
-      baseY - 145 * scale + wobbleY * 0.8,
+      baseY - 145 * scale + wobbleY * 0.8 + hunchOffset,
     );
     final hipCenter = Offset(
       centerX + wobbleX * 0.3 + leanX * 0.5,
@@ -95,7 +103,7 @@ class StickFigurePainter extends CustomPainter {
     // Arms - one extended holding gun
     final shoulderPos = Offset(
       centerX + wobbleX * 0.7 + leanX * 0.7,
-      baseY - 130 * scale + wobbleY * 0.7,
+      baseY - 130 * scale + wobbleY * 0.7 + hunchOffset,
     );
 
     // Back arm (relaxed)
@@ -104,6 +112,8 @@ class StickFigurePainter extends CustomPainter {
       shoulderPos.dy + 30 * scale,
     );
     canvas.drawLine(shoulderPos, backHand, paint);
+
+    BackpackPainter.paint(canvas, shoulderPos, scale, contextWindow);
 
     // Gun arm (extended right)
     final gunTip = Offset(
