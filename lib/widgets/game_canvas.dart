@@ -168,9 +168,6 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
                         painter: StickFigurePainter(
                           skillLevel: widget.state.skillLevel,
                           gun: widget.state.selectedGun,
-                          isWindy: widget.state.environment.windy,
-                          isLowLight: widget.state.environment.lowLight,
-                          isUnstable: widget.state.environment.unstable,
                           wobblePhase: _wobbleController.value * 6.28,
                           contextWindow: widget.state.contextWindow,
                         ),

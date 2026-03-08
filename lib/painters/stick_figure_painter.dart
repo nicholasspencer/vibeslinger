@@ -8,18 +8,12 @@ class StickFigurePainter extends CustomPainter {
   final double skillLevel; // 0.0 to 1.0
   final Gun gun;
   final ContextWindow contextWindow;
-  final bool isWindy;
-  final bool isLowLight;
-  final bool isUnstable;
   final double wobblePhase; // animated value for wobble
 
   StickFigurePainter({
     required this.skillLevel,
     required this.gun,
     required this.contextWindow,
-    this.isWindy = false,
-    this.isLowLight = false,
-    this.isUnstable = false,
     this.wobblePhase = 0.0,
   });
 
@@ -31,8 +25,6 @@ class StickFigurePainter extends CustomPainter {
 
     // Calculate wobble based on skill and conditions
     final wobbleAmount = (1.0 - skillLevel) * 8.0 +
-        (isWindy ? 4.0 : 0.0) +
-        (isUnstable ? 5.0 : 0.0) +
         contextWindow.loadWobblePenalty * 6.0;
     final wobbleX = sin(wobblePhase * 3) * wobbleAmount * scale;
     final wobbleY = sin(wobblePhase * 2.3) * wobbleAmount * 0.3 * scale;
@@ -43,8 +35,7 @@ class StickFigurePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    // Wind lean
-    final leanX = isWindy ? sin(wobblePhase) * 6 * scale : 0.0;
+    const leanX = 0.0;
 
     // Head
     final headCenter = Offset(
@@ -52,24 +43,6 @@ class StickFigurePainter extends CustomPainter {
       baseY - 160 * scale + wobbleY,
     );
     canvas.drawCircle(headCenter, 12 * scale, paint);
-
-    // Squint eyes if low light
-    if (isLowLight) {
-      final eyePaint = Paint()
-        ..color = Colors.white
-        ..strokeWidth = 1.5 * scale
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(headCenter.dx - 5 * scale, headCenter.dy - 2 * scale),
-        Offset(headCenter.dx - 1 * scale, headCenter.dy - 2 * scale),
-        eyePaint,
-      );
-      canvas.drawLine(
-        Offset(headCenter.dx + 1 * scale, headCenter.dy - 2 * scale),
-        Offset(headCenter.dx + 5 * scale, headCenter.dy - 2 * scale),
-        eyePaint,
-      );
-    }
 
     // Hunch from context load
     final hunchOffset = contextWindow.loadWobblePenalty * 8.0 * scale;
@@ -88,17 +61,8 @@ class StickFigurePainter extends CustomPainter {
     // Legs
     final leftFoot = Offset(centerX - 20 * scale, baseY);
     final rightFoot = Offset(centerX + 20 * scale, baseY);
-    final stanceOffset = isUnstable ? 10 * scale : 0.0;
-    canvas.drawLine(
-      hipCenter,
-      Offset(leftFoot.dx - stanceOffset, leftFoot.dy),
-      paint,
-    );
-    canvas.drawLine(
-      hipCenter,
-      Offset(rightFoot.dx + stanceOffset, rightFoot.dy),
-      paint,
-    );
+    canvas.drawLine(hipCenter, leftFoot, paint);
+    canvas.drawLine(hipCenter, rightFoot, paint);
 
     // Arms - one extended holding gun
     final shoulderPos = Offset(

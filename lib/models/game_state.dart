@@ -9,34 +9,6 @@ const _aimColor = Color(0xFF44AA88);
 const _scoutColor = Color(0xFFAACC44);
 const _shotColor = Color(0xFF44CC88);
 
-class EnvironmentFactors {
-  final bool windy; // high temperature
-  final bool lowLight; // small context window
-  final bool unstable; // poor prompt structure
-
-  const EnvironmentFactors({
-    this.windy = false,
-    this.lowLight = false,
-    this.unstable = false,
-  });
-
-  double get penaltyMultiplier {
-    double penalty = 1.0;
-    if (windy) penalty *= 0.82;
-    if (lowLight) penalty *= 0.88;
-    if (unstable) penalty *= 0.78;
-    return penalty;
-  }
-
-  EnvironmentFactors copyWith({bool? windy, bool? lowLight, bool? unstable}) {
-    return EnvironmentFactors(
-      windy: windy ?? this.windy,
-      lowLight: lowLight ?? this.lowLight,
-      unstable: unstable ?? this.unstable,
-    );
-  }
-}
-
 class ShotResult {
   final Offset offset; // offset from center of target, normalized -1 to 1
   final DateTime time;
@@ -48,7 +20,6 @@ class ShotResult {
 class GameState extends ChangeNotifier {
   Gun _selectedGun = Gun.all[0];
   double _skillLevel = 0.5; // 0.0 novice, 1.0 expert
-  EnvironmentFactors _environment = const EnvironmentFactors();
   final List<ShotResult> _shots = [];
   double _heatLevel = 0.0; // 0.0 cool, 1.0 overheated
   final Random _random = Random();
@@ -58,7 +29,6 @@ class GameState extends ChangeNotifier {
 
   Gun get selectedGun => _selectedGun;
   double get skillLevel => _skillLevel;
-  EnvironmentFactors get environment => _environment;
   List<ShotResult> get shots => List.unmodifiable(_shots);
   double get heatLevel => _heatLevel;
   ContextWindow get contextWindow => _contextWindow;
@@ -81,30 +51,8 @@ class GameState extends ChangeNotifier {
     final base = _selectedGun.baseAccuracy + _toolAccuracyBonus;
     final aimBonus = _planning.bonus.spreadReduction * 0.3;
     final heat = 1.0 - (_heatLevel * 0.35);
-    final env = _effectiveEnvironmentPenalty;
     final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
-    return ((base + aimBonus) * heat * env * loadPenalty).clamp(0.05, 0.99);
-  }
-
-  double get _effectiveEnvironmentPenalty {
-    double penalty = 1.0;
-    int negationsLeft = _planning.bonus.scoutNegations + _toolScoutNegations;
-    if (_environment.unstable && negationsLeft > 0) {
-      negationsLeft--;
-    } else if (_environment.unstable) {
-      penalty *= 0.78;
-    }
-    if (_environment.windy && negationsLeft > 0) {
-      negationsLeft--;
-    } else if (_environment.windy) {
-      penalty *= 0.82;
-    }
-    if (_environment.lowLight && negationsLeft > 0) {
-      negationsLeft--;
-    } else if (_environment.lowLight) {
-      penalty *= 0.88;
-    }
-    return penalty;
+    return ((base + aimBonus) * heat * loadPenalty).clamp(0.05, 0.99);
   }
 
   void selectGun(Gun gun) {
@@ -114,11 +62,6 @@ class GameState extends ChangeNotifier {
 
   void setSkillLevel(double level) {
     _skillLevel = level.clamp(0.0, 1.0);
-    notifyListeners();
-  }
-
-  void setEnvironment(EnvironmentFactors env) {
-    _environment = env;
     notifyListeners();
   }
 
@@ -209,15 +152,6 @@ class GameState extends ChangeNotifier {
     _loadedTools.remove(type);
     notifyListeners();
     return true;
-  }
-
-  int get _toolScoutNegations {
-    int n = 0;
-    for (final type in _loadedTools) {
-      final tool = Tool.all.firstWhere((t) => t.type == type);
-      n += tool.scoutNegations;
-    }
-    return n;
   }
 
   double get _toolAccuracyBonus {

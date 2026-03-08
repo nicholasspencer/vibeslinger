@@ -34,22 +34,29 @@ void main() {
       expect(planning.bonus.spreadReduction, closeTo(0.15, 0.01));
     });
 
-    test('direct scout increments negation count', () {
+    test('direct scout adds spread reduction', () {
       planning.togglePlanning();
       planning.applyAction(PlanningAction.directScout);
-      expect(planning.bonus.scoutNegations, 1);
+      expect(planning.bonus.spreadReduction, closeTo(0.20, 0.01));
+    });
+
+    test('multiple direct scouts stack', () {
+      planning.togglePlanning();
+      planning.applyAction(PlanningAction.directScout);
+      planning.applyAction(PlanningAction.directScout);
+      expect(planning.bonus.spreadReduction, closeTo(0.40, 0.01));
     });
 
     test('subagent scout does not immediately apply', () {
       planning.togglePlanning();
       planning.applyAction(PlanningAction.subagentScout);
-      expect(planning.bonus.scoutNegations, 0);
+      expect(planning.bonus.spreadReduction, 0.0);
     });
 
-    test('applySubagentScoutResult increments negation', () {
+    test('applySubagentScoutResult adds spread reduction', () {
       planning.togglePlanning();
       planning.applySubagentScoutResult();
-      expect(planning.bonus.scoutNegations, 1);
+      expect(planning.bonus.spreadReduction, closeTo(0.15, 0.01));
     });
 
     test('cannot apply action when not planning', () {
@@ -76,10 +83,8 @@ void main() {
 
     test('bonus scale reduces proportionally', () {
       planning.bonus.spreadReduction = 0.50;
-      planning.bonus.scoutNegations = 3;
       planning.bonus.scale(0.4);
       expect(planning.bonus.spreadReduction, closeTo(0.20, 0.01));
-      expect(planning.bonus.scoutNegations, 1);
     });
   });
 }

@@ -27,16 +27,11 @@ void main() {
       expect(novice, closeTo(expert, 0.01));
     });
 
-    test('environment penalties stack', () {
-      state.setSkillLevel(1.0);
-      state.selectGun(Gun.all[0]);
-      state.setEnvironment(const EnvironmentFactors(
-        windy: true,
-        lowLight: true,
-        unstable: true,
-      ));
-      // 0.55 * 0.82 * 0.88 * 0.78 ≈ 0.309
-      expect(state.effectiveAccuracy, closeTo(0.309, 0.02));
+    test('direct scout improves effective accuracy', () {
+      final before = state.effectiveAccuracy;
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.directScout);
+      expect(state.effectiveAccuracy, greaterThan(before));
     });
 
     test('firing increases heat', () {
@@ -201,18 +196,6 @@ void main() {
       expect(after - before, closeTo(0.25, 0.02));
     });
 
-    test('skill creator removes 1 environment penalty', () {
-      state.setEnvironment(const EnvironmentFactors(windy: true));
-      final withPenalty = state.effectiveAccuracy;
-      state.loadTool(ToolType.skillCreator);
-      final withTool = state.effectiveAccuracy;
-      // Without tool: base * 0.82; with tool: (base+0.25) * 1.0 (penalty negated)
-      expect(withTool, greaterThan(withPenalty));
-      // Verify penalty is actually negated (not just offset by accuracy bonus)
-      state.unloadTool(ToolType.skillCreator);
-      // Re-check: accuracy should drop back
-      expect(state.effectiveAccuracy, closeTo(withPenalty, 0.01));
-    });
 
     test('aim improves effective accuracy', () {
       final before = state.effectiveAccuracy;

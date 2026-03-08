@@ -104,53 +104,6 @@ class _SidebarPanelState extends State<SidebarPanel> {
               ),
               const SizedBox(height: 16),
 
-              // Environment section
-              _sectionLabel('ENVIRONMENT'),
-              _buildEnvironmentChip(
-                label: 'Windy (High Temp)',
-                selected: widget.state.environment.windy,
-                color: Colors.orange,
-                onSelected: (v) => widget.state.setEnvironment(
-                  widget.state.environment.copyWith(windy: v),
-                ),
-                onInfo: () => _showInfo(
-                  'High Temperature',
-                  'Simulates high temperature/randomness in generation. Like cranking up the temperature parameter — outputs become less predictable.',
-                  accuracyImpact: '0.82x accuracy penalty',
-                ),
-              ),
-              const SizedBox(height: 4),
-              _buildEnvironmentChip(
-                label: 'Low Light (Small Context)',
-                selected: widget.state.environment.lowLight,
-                color: Colors.purple,
-                onSelected: (v) => widget.state.setEnvironment(
-                  widget.state.environment.copyWith(lowLight: v),
-                ),
-                onInfo: () => _showInfo(
-                  'Small Context',
-                  'Simulates a reduced context window. Less context means the model has fewer tokens to work with, reducing precision.',
-                  accuracyImpact: '0.88x accuracy penalty',
-                ),
-              ),
-              const SizedBox(height: 4),
-              _buildEnvironmentChip(
-                label: 'Unstable (Bad Prompts)',
-                selected: widget.state.environment.unstable,
-                color: Colors.red,
-                onSelected: (v) => widget.state.setEnvironment(
-                  widget.state.environment.copyWith(unstable: v),
-                ),
-                onInfo: () => _showInfo(
-                  'Bad Prompts',
-                  'Simulates poorly structured prompts. The worst environment factor — unclear instructions lead to unreliable outputs.',
-                  accuracyImpact: '0.78x accuracy penalty (worst factor)',
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Divider(color: Colors.white24),
-              const SizedBox(height: 8),
-
               // Planning section
               _sectionLabel('PLANNING'),
               _infoRow(
@@ -185,12 +138,12 @@ class _SidebarPanelState extends State<SidebarPanel> {
               _infoRow(
                 child: _buildScoutButton(isPlanning, isExecuting),
                 onInfo: () => _showInfo(
-                  'Remove Penalties (Scout)',
-                  'Improves accuracy by removing 1 environment penalty.\n\n'
-                  '• Direct Scout: 8% user context, instant effect\n'
-                  '• Subagent Scout: 3% user context, 3-second delay\n\n'
-                  'Maps to retrieval / tool use — gathering information to overcome environmental challenges.',
-                  accuracyImpact: 'Removes 1 accuracy penalty per scout',
+                  'Improve Accuracy (Scout)',
+                  'Improves accuracy by reducing shot spread.\n\n'
+                  '• Direct Scout: 8% user context, +20% spread reduction (instant)\n'
+                  '• Subagent Scout: 3% user context, +15% spread reduction (~3s delay)\n\n'
+                  'Maps to retrieval / tool use — gathering information to improve response quality.',
+                  accuracyImpact: '+6% accuracy per direct scout, +4.5% per subagent',
                 ),
               ),
               const SizedBox(height: 6),
@@ -204,7 +157,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   '• File Reader — -5% spread (6% system)\n'
                   '• Code Review — +5% accuracy, -8% spread (12% system)\n'
                   '  ⚠ +50% heat generation (overheats faster)\n'
-                  '• Skill Creator — +25% accuracy, removes 1 penalty (15% system) ⭐ cheat',
+                  '• Skill Creator — +25% accuracy (15% system) ⭐ cheat',
                   accuracyImpact: 'Varies by tool, costs permanent system context',
                 ),
               ),
@@ -395,32 +348,6 @@ class _SidebarPanelState extends State<SidebarPanel> {
     );
   }
 
-  Widget _buildEnvironmentChip({
-    required String label,
-    required bool selected,
-    required Color color,
-    required ValueChanged<bool> onSelected,
-    required VoidCallback onInfo,
-  }) {
-    return _infoRow(
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (v) {
-          onSelected(v);
-          widget.onFocusFiringRange?.call();
-        },
-        selectedColor: color.withValues(alpha: 0.3),
-        checkmarkColor: color,
-        labelStyle: TextStyle(
-          color: selected ? color : Colors.white54,
-          fontSize: 12,
-        ),
-      ),
-      onInfo: onInfo,
-    );
-  }
-
   Widget _buildPlanToggle(bool isPlanning) {
     return SizedBox(
       width: double.infinity,
@@ -499,7 +426,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   children: [
                     const Text('Direct', style: TextStyle(color: Colors.white)),
                     Text(
-                      '${(widget.state.planning.contextCostFor(PlanningAction.directScout, skillLevel: widget.state.skillLevel) * 100).toStringAsFixed(0)}% user ctx • Remove 1 penalty (instant)',
+                      '${(widget.state.planning.contextCostFor(PlanningAction.directScout, skillLevel: widget.state.skillLevel) * 100).toStringAsFixed(0)}% user ctx • +20% spread reduction (instant)',
                       style: const TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
@@ -521,7 +448,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   children: [
                     const Text('Subagent', style: TextStyle(color: Colors.white)),
                     Text(
-                      '${(widget.state.planning.contextCostFor(PlanningAction.subagentScout, skillLevel: widget.state.skillLevel) * 100).toStringAsFixed(0)}% user ctx • Remove 1 penalty (~3s delay)',
+                      '${(widget.state.planning.contextCostFor(PlanningAction.subagentScout, skillLevel: widget.state.skillLevel) * 100).toStringAsFixed(0)}% user ctx • +15% spread reduction (~3s delay)',
                       style: const TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],

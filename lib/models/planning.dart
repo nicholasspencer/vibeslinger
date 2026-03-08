@@ -6,23 +6,19 @@ enum PlanningAction {
 
 class PlanningBonus {
   double spreadReduction;
-  int scoutNegations;
 
   PlanningBonus({
     this.spreadReduction = 0.0,
-    this.scoutNegations = 0,
   });
 
-  bool get hasBonus => spreadReduction > 0 || scoutNegations > 0;
+  bool get hasBonus => spreadReduction > 0;
 
   void reset() {
     spreadReduction = 0.0;
-    scoutNegations = 0;
   }
 
   void scale(double factor) {
     spreadReduction = (spreadReduction * factor).clamp(0.0, 0.90);
-    scoutNegations = (scoutNegations * factor).floor();
   }
 }
 
@@ -70,7 +66,7 @@ class PlanningState {
         _aimUses++;
         break;
       case PlanningAction.directScout:
-        bonus.scoutNegations++;
+        bonus.spreadReduction = (bonus.spreadReduction + 0.20).clamp(0.0, 0.90);
         break;
       case PlanningAction.subagentScout:
         // Benefit applied after delay via applySubagentScoutResult()
@@ -80,7 +76,7 @@ class PlanningState {
   }
 
   void applySubagentScoutResult() {
-    bonus.scoutNegations++;
+    bonus.spreadReduction = (bonus.spreadReduction + 0.15).clamp(0.0, 0.90);
   }
 
   void consumeBonuses() {
