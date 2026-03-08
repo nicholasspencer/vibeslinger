@@ -17,30 +17,32 @@ class ContextSegment {
 }
 
 class ContextWindow {
-  static const double baseSystemLoad = 0.20;
+  static const double baseSystemLoad = 0.15;
   static const double compactionBufferSize = 0.165;
 
+  final List<ContextSegment> systemSegments = [];
+  final List<ContextSegment> userSegments = [];
   final double bufferLoad;
-  double _systemLoad;
-  double _userLoad;
   bool _isCompacted = false;
 
-  ContextWindow({
-    double systemLoad = baseSystemLoad,
-    this.bufferLoad = 0.15,
-    double userLoad = 0.0,
-  })  : _systemLoad = systemLoad,
-        _userLoad = userLoad;
+  ContextWindow({this.bufferLoad = 0.15}) {
+    systemSegments.add(ContextSegment(
+      type: ContextSegmentType.harness,
+      label: 'Harness',
+      amount: baseSystemLoad,
+      color: const Color(0xFF3366AA),
+    ));
+  }
 
-  double get systemLoad => _systemLoad;
-  double get userLoad => _userLoad;
+  double get systemLoad => systemSegments.fold(0.0, (sum, s) => sum + s.amount);
+  double get userLoad => userSegments.fold(0.0, (sum, s) => sum + s.amount);
   bool get isCompacted => _isCompacted;
-  double get totalLoad => (_systemLoad + bufferLoad + _userLoad).clamp(0.0, 1.0);
+  double get totalLoad => (systemLoad + bufferLoad + userLoad).clamp(0.0, 1.0);
   double get remainingCapacity => (1.0 - totalLoad).clamp(0.0, 1.0);
   double get compactionThreshold => 1.0 - compactionBufferSize;
   bool get isInCompactionZone => totalLoad > compactionThreshold;
   bool get isOverloaded => totalLoad > 0.70;
-  bool get isNearFull => totalLoad > 0.90;
+  bool get isNearFull => totalLoad > 0.8999;
 
   double get loadWobblePenalty {
     if (totalLoad <= 0.70) return 0.0;
@@ -52,37 +54,64 @@ class ContextWindow {
     return 1.0 + ((totalLoad - 0.70) / 0.30).clamp(0.0, 1.0);
   }
 
-  bool consumeContext(double amount) {
+  void addToolSegment(String label, double cost, Color color) {
+    systemSegments.add(ContextSegment(
+      type: ContextSegmentType.tool,
+      label: label,
+      amount: cost,
+      color: color,
+    ));
+  }
+
+  void removeToolSegment(String label) {
+    systemSegments.removeWhere((s) => s.type == ContextSegmentType.tool && s.label == label);
+  }
+
+  bool consumeUserContext(ContextSegmentType type, String label, double amount, Color color) {
     if (isNearFull) return false;
-    final maxUser = 1.0 - _systemLoad - bufferLoad;
-    _userLoad = (_userLoad + amount).clamp(0.0, maxUser);
+    final existing = userSegments.where((s) => s.type == type).firstOrNull;
+    if (existing != null) {
+      final maxAdd = 1.0 - totalLoad;
+      existing.amount += amount.clamp(0.0, maxAdd);
+    } else {
+      userSegments.add(ContextSegment(
+        type: type,
+        label: label,
+        amount: amount,
+        color: color,
+      ));
+    }
     return true;
   }
 
-  void addToolLoad(double cost) {
-    _systemLoad = (_systemLoad + cost).clamp(0.0, 1.0);
-  }
-
-  void removeToolLoad(double cost) {
-    _systemLoad = (_systemLoad - cost).clamp(baseSystemLoad, 1.0);
-  }
-
   void compact() {
-    _userLoad = _userLoad * 0.4;
+    for (final seg in userSegments) {
+      seg.amount *= 0.4;
+    }
+    userSegments.removeWhere((s) => s.amount < 0.001);
     _isCompacted = true;
   }
 
   void reset() {
-    _systemLoad = baseSystemLoad;
-    _userLoad = 0.0;
+    systemSegments.removeWhere((s) => s.type != ContextSegmentType.harness);
+    userSegments.clear();
     _isCompacted = false;
   }
 
   ContextWindow copy() {
-    return ContextWindow(
-      systemLoad: _systemLoad,
-      bufferLoad: bufferLoad,
-      userLoad: _userLoad,
-    ).._isCompacted = _isCompacted;
+    final c = ContextWindow(bufferLoad: bufferLoad);
+    c.systemSegments.clear();
+    for (final s in systemSegments) {
+      c.systemSegments.add(ContextSegment(
+        type: s.type, label: s.label, amount: s.amount, color: s.color,
+      ));
+    }
+    for (final s in userSegments) {
+      c.userSegments.add(ContextSegment(
+        type: s.type, label: s.label, amount: s.amount, color: s.color,
+      ));
+    }
+    c._isCompacted = _isCompacted;
+    return c;
   }
 }
