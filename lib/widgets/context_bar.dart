@@ -9,6 +9,7 @@ class ContextBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = contextWindow.totalLoad;
+    final inDanger = contextWindow.isInCompactionZone;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
@@ -19,11 +20,15 @@ class ContextBar extends StatelessWidget {
               Text(
                 'Context: ${(total * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
-                  color: contextWindow.isOverloaded ? Colors.red : Colors.white70,
+                  color: inDanger ? Colors.red : (contextWindow.isOverloaded ? Colors.orange : Colors.white70),
                   fontSize: 12,
-                  fontWeight: contextWindow.isOverloaded ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: inDanger ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
+              if (contextWindow.isCompacted) ...[
+                const SizedBox(width: 6),
+                const Text('(compacted)', style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic)),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
@@ -42,7 +47,12 @@ class ContextBar extends StatelessWidget {
               const SizedBox(width: 12),
               _legend(const Color(0xFFCCA844), 'Buffer ${(contextWindow.bufferLoad * 100).toStringAsFixed(0)}%'),
               const SizedBox(width: 12),
-              _legend(const Color(0xFF44CC88), 'User ${(contextWindow.userLoad * 100).toStringAsFixed(0)}%'),
+              _legend(
+                contextWindow.isCompacted ? const Color(0xFF2A8855) : const Color(0xFF44CC88),
+                'User ${(contextWindow.userLoad * 100).toStringAsFixed(0)}%',
+              ),
+              const SizedBox(width: 12),
+              _legend(const Color(0xFF555555), 'Compact ${(ContextWindow.compactionBufferSize * 100).toStringAsFixed(1)}%'),
             ],
           ),
         ],
@@ -69,17 +79,39 @@ class _ContextBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
     final radius = Radius.circular(3);
+
+    // Background
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), radius),
-      bgPaint,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.1)
+        ..style = PaintingStyle.fill,
     );
 
+    // Compaction buffer zone (right-aligned)
+    final compactWidth = size.width * ContextWindow.compactionBufferSize;
+    final compactLeft = size.width - compactWidth;
+    canvas.drawRect(
+      Rect.fromLTWH(compactLeft, 0, compactWidth, size.height),
+      Paint()..color = const Color(0xFF555555).withValues(alpha: 0.4),
+    );
+    // Hatching pattern
+    final hatchPaint = Paint()
+      ..color = const Color(0xFF666666).withValues(alpha: 0.3)
+      ..strokeWidth = 1;
+    for (double hx = compactLeft; hx < size.width; hx += 4) {
+      canvas.drawLine(
+        Offset(hx, 0),
+        Offset(hx + size.height, size.height),
+        hatchPaint,
+      );
+    }
+
+    // Content sections (left-to-right)
     double x = 0;
 
+    // System (blue)
     final systemWidth = size.width * contextWindow.systemLoad;
     canvas.drawRect(
       Rect.fromLTWH(x, 0, systemWidth, size.height),
@@ -87,6 +119,7 @@ class _ContextBarPainter extends CustomPainter {
     );
     x += systemWidth;
 
+    // Buffer (amber)
     final bufferWidth = size.width * contextWindow.bufferLoad;
     canvas.drawRect(
       Rect.fromLTWH(x, 0, bufferWidth, size.height),
@@ -94,32 +127,40 @@ class _ContextBarPainter extends CustomPainter {
     );
     x += bufferWidth;
 
+    // User (green — desaturated if compacted)
     final userWidth = size.width * contextWindow.userLoad;
+    final userColor = contextWindow.isCompacted
+        ? const Color(0xFF2A8855).withValues(alpha: 0.7)
+        : const Color(0xFF44CC88).withValues(alpha: 0.7);
     canvas.drawRect(
       Rect.fromLTWH(x, 0, userWidth, size.height),
-      Paint()..color = const Color(0xFF44CC88).withValues(alpha: 0.7),
+      Paint()..color = userColor,
     );
 
-    final thresholdX = size.width * 0.70;
-    canvas.drawLine(
-      Offset(thresholdX, 0),
-      Offset(thresholdX, size.height),
-      Paint()
-        ..color = Colors.red.withValues(alpha: 0.5)
-        ..strokeWidth = 1,
-    );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), radius),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.2)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    // Border — red when in compaction zone
+    if (contextWindow.isInCompactionZone) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), radius),
+        Paint()
+          ..color = Colors.red.withValues(alpha: 0.8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), radius),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _ContextBarPainter oldDelegate) {
-    return oldDelegate.contextWindow.totalLoad != contextWindow.totalLoad;
+    return oldDelegate.contextWindow.totalLoad != contextWindow.totalLoad ||
+        oldDelegate.contextWindow.isCompacted != contextWindow.isCompacted ||
+        oldDelegate.contextWindow.systemLoad != contextWindow.systemLoad;
   }
 }
