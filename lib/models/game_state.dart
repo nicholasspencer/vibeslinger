@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'context_window.dart';
 import 'gun.dart';
+import 'planning.dart';
 
 class EnvironmentFactors {
   final bool windy; // high temperature
@@ -47,6 +48,7 @@ class GameState extends ChangeNotifier {
   double _heatLevel = 0.0; // 0.0 cool, 1.0 overheated
   final Random _random = Random();
   final ContextWindow _contextWindow = ContextWindow();
+  final PlanningState _planning = PlanningState();
 
   Gun get selectedGun => _selectedGun;
   double get skillLevel => _skillLevel;
@@ -54,14 +56,36 @@ class GameState extends ChangeNotifier {
   List<ShotResult> get shots => List.unmodifiable(_shots);
   double get heatLevel => _heatLevel;
   ContextWindow get contextWindow => _contextWindow;
+  PlanningState get planning => _planning;
 
   double get effectiveAccuracy {
-    final base = _selectedGun.baseAccuracy;
-    final skill = 0.5 + (_skillLevel * 0.5); // skill scales from 0.5x to 1.0x
-    final heat = 1.0 - (_heatLevel * 0.6); // heat degrades up to 60%
-    final env = _environment.penaltyMultiplier;
+    final base = _selectedGun.baseAccuracy + _planning.bonus.accuracyBoost;
+    final skill = 0.5 + (_skillLevel * 0.5);
+    final heat = 1.0 - (_heatLevel * 0.6);
+    final env = _effectiveEnvironmentPenalty;
     final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
     return (base * skill * heat * env * loadPenalty).clamp(0.05, 1.0);
+  }
+
+  double get _effectiveEnvironmentPenalty {
+    double penalty = 1.0;
+    int negationsLeft = _planning.bonus.scoutNegations;
+    if (_environment.unstable && negationsLeft > 0) {
+      negationsLeft--;
+    } else if (_environment.unstable) {
+      penalty *= 0.78;
+    }
+    if (_environment.windy && negationsLeft > 0) {
+      negationsLeft--;
+    } else if (_environment.windy) {
+      penalty *= 0.82;
+    }
+    if (_environment.lowLight && negationsLeft > 0) {
+      negationsLeft--;
+    } else if (_environment.lowLight) {
+      penalty *= 0.88;
+    }
+    return penalty;
   }
 
   void selectGun(Gun gun) {
@@ -81,9 +105,9 @@ class GameState extends ChangeNotifier {
 
   ShotResult fire() {
     final accuracy = effectiveAccuracy;
-    final spread = (1.0 - accuracy) * 2.0;
+    final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction;
+    final spread = (1.0 - accuracy) * 2.0 * spreadMultiplier;
 
-    // Gaussian-ish distribution using Box-Muller
     final u1 = _random.nextDouble();
     final u2 = _random.nextDouble();
     final z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * pi * u2);
@@ -97,8 +121,10 @@ class GameState extends ChangeNotifier {
     final shot = ShotResult(offset: offset, time: DateTime.now());
     _shots.add(shot);
 
-    // Increase heat
     _heatLevel = (_heatLevel + 0.12 * _contextWindow.heatRateMultiplier).clamp(0.0, 1.0);
+
+    // Consume planning bonuses after firing
+    _planning.consumeBonuses();
 
     notifyListeners();
     return shot;
@@ -109,10 +135,25 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void togglePlanning() {
+    _planning.togglePlanning();
+    notifyListeners();
+  }
+
+  bool executePlanningAction(PlanningAction action) {
+    if (_contextWindow.isNearFull) return false;
+    final cost = _planning.contextCostFor(action);
+    if (!_contextWindow.consumeContext(cost)) return false;
+    final result = _planning.applyAction(action);
+    if (result) notifyListeners();
+    return result;
+  }
+
   void clearShots() {
     _shots.clear();
     _heatLevel = 0.0;
     _contextWindow.reset();
+    _planning.reset();
     notifyListeners();
   }
 
@@ -137,6 +178,11 @@ class GameState extends ChangeNotifier {
         _selectedGun = Gun.all[0];
         _skillLevel = 1.0;
         _environment = const EnvironmentFactors();
+        break;
+      case 4: // The Planner
+        _selectedGun = Gun.all[0];
+        _skillLevel = 1.0;
+        _environment = const EnvironmentFactors(windy: true);
         break;
       default: // Free Play
         _selectedGun = Gun.all[0];
