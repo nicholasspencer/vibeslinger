@@ -107,25 +107,61 @@ class _ContextBarPainter extends CustomPainter {
     }
 
     // Content sections (left-to-right)
+    // System segments (with dividers)
     double x = 0;
+    for (int i = 0; i < contextWindow.systemSegments.length; i++) {
+      final seg = contextWindow.systemSegments[i];
+      final segWidth = size.width * seg.amount;
+      canvas.drawRect(
+        Rect.fromLTWH(x, 0, segWidth, size.height),
+        Paint()..color = seg.color.withValues(alpha: 0.7),
+      );
+      if (i > 0) {
+        // 1px divider between segments
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, size.height),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.3)
+            ..strokeWidth = 1,
+        );
+      }
+      x += segWidth;
+    }
 
-    // System (blue)
-    final systemWidth = size.width * contextWindow.systemLoad;
-    canvas.drawRect(
-      Rect.fromLTWH(x, 0, systemWidth, size.height),
-      Paint()..color = const Color(0xFF4488CC).withValues(alpha: 0.7),
-    );
-    x += systemWidth;
-
-    // User (green — desaturated if compacted)
-    final userWidth = size.width * contextWindow.userLoad;
-    final userColor = contextWindow.isCompacted
-        ? const Color(0xFF2A8855).withValues(alpha: 0.7)
-        : const Color(0xFF44CC88).withValues(alpha: 0.7);
-    canvas.drawRect(
-      Rect.fromLTWH(x, 0, userWidth, size.height),
-      Paint()..color = userColor,
-    );
+    // User segments (with dividers)
+    final userStartX = x;
+    for (int i = 0; i < contextWindow.userSegments.length; i++) {
+      final seg = contextWindow.userSegments[i];
+      final segWidth = size.width * seg.amount;
+      final color = contextWindow.isCompacted
+          ? seg.color.withValues(alpha: 0.4)
+          : seg.color.withValues(alpha: 0.7);
+      canvas.drawRect(
+        Rect.fromLTWH(x, 0, segWidth, size.height),
+        Paint()..color = color,
+      );
+      if (i > 0) {
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, size.height),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.3)
+            ..strokeWidth = 1,
+        );
+      }
+      x += segWidth;
+    }
+    // Divider between system and user if both have content
+    if (contextWindow.userSegments.isNotEmpty) {
+      canvas.drawLine(
+        Offset(userStartX, 0),
+        Offset(userStartX, size.height),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..strokeWidth = 1,
+      );
+    }
 
     // Border — red when in compaction zone
     if (contextWindow.isInCompactionZone) {
@@ -148,9 +184,5 @@ class _ContextBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ContextBarPainter oldDelegate) {
-    return oldDelegate.contextWindow.totalLoad != contextWindow.totalLoad ||
-        oldDelegate.contextWindow.isCompacted != contextWindow.isCompacted ||
-        oldDelegate.contextWindow.systemLoad != contextWindow.systemLoad;
-  }
+  bool shouldRepaint(covariant _ContextBarPainter oldDelegate) => true;
 }
