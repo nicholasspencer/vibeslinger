@@ -3,6 +3,7 @@ enum ToolType {
   codeAnalysis,
   fileReader,
   codeReview,
+  skillCreator,
 }
 
 class Tool {
@@ -16,6 +17,7 @@ class Tool {
 
   final double heatPenalty;
   final double shotCostPenalty;
+  final int scoutNegations;
 
   const Tool({
     required this.type,
@@ -27,6 +29,7 @@ class Tool {
     this.spreadBonus = 0.0,
     this.heatPenalty = 0.0,
     this.shotCostPenalty = 0.0,
+    this.scoutNegations = 0,
   });
 
   static const List<Tool> all = [
@@ -63,6 +66,15 @@ class Tool {
       spreadBonus: 0.08,
       heatPenalty: 0.5,
       shotCostPenalty: 0.015,
+    ),
+    Tool(
+      type: ToolType.skillCreator,
+      name: 'Skill Creator',
+      systemCost: 0.15,
+      passiveBenefit: '+25% accuracy, removes 1 penalty',
+      accuracyBonus: 0.25,
+      scoutNegations: 1,
+      shotCostPenalty: 0.02,
     ),
   ];
 }

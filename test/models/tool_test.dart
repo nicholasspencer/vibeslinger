@@ -5,8 +5,8 @@ import 'package:inference_gunslinger/models/context_window.dart';
 
 void main() {
   group('Tool', () {
-    test('four tools defined', () {
-      expect(Tool.all.length, 4);
+    test('five tools defined', () {
+      expect(Tool.all.length, 5);
     });
 
     test('code review tool exists with correct properties', () {

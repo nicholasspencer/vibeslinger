@@ -38,14 +38,15 @@ class PlanningState {
 
   double _diminish(double base, int uses) => base / (1 << uses);
 
-  double contextCostFor(PlanningAction action) {
+  double contextCostFor(PlanningAction action, {double skillLevel = 1.0}) {
+    final skillScale = 1.5 - skillLevel * 0.5;
     switch (action) {
       case PlanningAction.aim:
-        return 0.05;
+        return 0.05 * skillScale;
       case PlanningAction.directScout:
-        return 0.08;
+        return 0.08 * skillScale;
       case PlanningAction.subagentScout:
-        return 0.03;
+        return 0.03 * skillScale;
     }
   }
 
@@ -57,13 +58,14 @@ class PlanningState {
     _isExecutingAction = value;
   }
 
-  bool applyAction(PlanningAction action) {
+  bool applyAction(PlanningAction action, {double skillLevel = 1.0}) {
     if (!_isPlanning) return false;
     if (action != PlanningAction.subagentScout && _isExecutingAction) return false;
 
     switch (action) {
       case PlanningAction.aim:
-        bonus.spreadReduction += _diminish(0.30, _aimUses);
+        final skillScale = 0.5 + skillLevel * 0.5;
+        bonus.spreadReduction += _diminish(0.30 * skillScale, _aimUses);
         bonus.spreadReduction = bonus.spreadReduction.clamp(0.0, 0.90);
         _aimUses++;
         break;

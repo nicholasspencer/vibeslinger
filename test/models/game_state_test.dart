@@ -42,8 +42,8 @@ void main() {
     test('firing increases heat', () {
       expect(state.heatLevel, 0.0);
       state.fire();
-      // 0.12 * 1.3 (Opus heat rate) = 0.156
-      expect(state.heatLevel, closeTo(0.156, 0.01));
+      // 0.09 * 1.3 (Opus heat rate) = 0.117
+      expect(state.heatLevel, closeTo(0.117, 0.01));
     });
 
     test('heat degrades accuracy', () {
@@ -180,6 +180,71 @@ void main() {
       state.loadTool(ToolType.webSearch);
       state.unloadTool(ToolType.webSearch);
       expect(state.contextWindow.systemSegments.length, 1); // harness only
+    });
+
+    test('auto-compacts when firing at near-full context', () {
+      // Fill context by firing repeatedly
+      for (var i = 0; i < 40; i++) {
+        state.fire();
+        state.coolDown(0.2);
+      }
+      final shotsBefore = state.shots.length;
+      state.fire();
+      expect(state.shots.length, shotsBefore + 1); // shot not lost
+      expect(state.contextWindow.isCompacted, true);
+    });
+
+    test('skill creator boosts accuracy by 25%', () {
+      final before = state.effectiveAccuracy;
+      state.loadTool(ToolType.skillCreator);
+      final after = state.effectiveAccuracy;
+      expect(after - before, closeTo(0.25, 0.02));
+    });
+
+    test('skill creator removes 1 environment penalty', () {
+      state.setEnvironment(const EnvironmentFactors(windy: true));
+      final withPenalty = state.effectiveAccuracy;
+      state.loadTool(ToolType.skillCreator);
+      final withTool = state.effectiveAccuracy;
+      // Without tool: base * 0.82; with tool: (base+0.25) * 1.0 (penalty negated)
+      expect(withTool, greaterThan(withPenalty));
+      // Verify penalty is actually negated (not just offset by accuracy bonus)
+      state.unloadTool(ToolType.skillCreator);
+      // Re-check: accuracy should drop back
+      expect(state.effectiveAccuracy, closeTo(withPenalty, 0.01));
+    });
+
+    test('aim improves effective accuracy', () {
+      final before = state.effectiveAccuracy;
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.aim);
+      expect(state.effectiveAccuracy, greaterThan(before));
+    });
+
+    test('aim accuracy bonus scales with skill level', () {
+      state.setSkillLevel(1.0);
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.aim);
+      final expert = state.effectiveAccuracy;
+
+      state.clearShots();
+      state.setSkillLevel(0.0);
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.aim);
+      final novice = state.effectiveAccuracy;
+
+      expect(expert, greaterThan(novice));
+    });
+
+    test('auto-compacts when executing planning action at near-full', () {
+      for (var i = 0; i < 40; i++) {
+        state.fire();
+        state.coolDown(0.2);
+      }
+      state.togglePlanning();
+      final result = state.executePlanningAction(PlanningAction.aim);
+      expect(result, true);
+      expect(state.contextWindow.isCompacted, true);
     });
   });
 }

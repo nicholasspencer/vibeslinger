@@ -57,17 +57,38 @@ class TargetPainter extends CustomPainter {
         center.dy + shot.offset.dy * maxRadius,
       );
 
-      // Glow
-      final glowPaint = Paint()
-        ..color = shotColor.withValues(alpha: 0.4)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      canvas.drawCircle(shotPos, 5, glowPaint);
+      if (shot.isBullseye) {
+        // Outer sparkle glow
+        final sparklePaint = Paint()
+          ..color = const Color(0xFFFFD700).withValues(alpha: 0.5)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+        canvas.drawCircle(shotPos, 8, sparklePaint);
 
-      // Core
-      final corePaint = Paint()
-        ..color = shotColor
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(shotPos, 3, corePaint);
+        // Gold ring
+        final ringPaint = Paint()
+          ..color = const Color(0xFFFFD700)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(shotPos, 5, ringPaint);
+
+        // White core
+        final corePaint = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(shotPos, 4, corePaint);
+      } else {
+        // Glow
+        final glowPaint = Paint()
+          ..color = shotColor.withValues(alpha: 0.4)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+        canvas.drawCircle(shotPos, 5, glowPaint);
+
+        // Core
+        final corePaint = Paint()
+          ..color = shotColor
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(shotPos, 3, corePaint);
+      }
     }
   }
 

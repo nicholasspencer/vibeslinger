@@ -7,18 +7,17 @@ import '../painters/stick_figure_painter.dart';
 import '../painters/target_painter.dart';
 import 'context_bar.dart';
 import 'heat_meter.dart';
-import 'planning_controls.dart';
 
-class GameCanvas extends StatefulWidget {
+class FiringRange extends StatefulWidget {
   final GameState state;
 
-  const GameCanvas({super.key, required this.state});
+  const FiringRange({super.key, required this.state});
 
   @override
-  State<GameCanvas> createState() => _GameCanvasState();
+  State<FiringRange> createState() => FiringRangeState();
 }
 
-class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
+class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin {
   late AnimationController _wobbleController;
   late AnimationController _laserController;
   late FocusNode _focusNode;
@@ -62,32 +61,36 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _fire() {
+  void fire() {
     if (!widget.state.planning.canFire) return;
     widget.state.fire();
     _laserController.forward(from: 0.0);
   }
 
-  void _startRapidFire() {
+  void startRapidFire() {
     _isRapidFiring = true;
-    _fire();
+    fire();
     _rapidFireTimer = Timer.periodic(
       const Duration(milliseconds: 250),
-      (_) => _fire(),
+      (_) => fire(),
     );
   }
 
-  void _stopRapidFire() {
+  void stopRapidFire() {
     _isRapidFiring = false;
     _rapidFireTimer?.cancel();
   }
 
-  void _startSubagentScoutTimer() {
+  void startSubagentScoutTimer() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         widget.state.completeSubagentScout();
       }
     });
+  }
+
+  void requestFiringFocus() {
+    _focusNode.requestFocus();
   }
 
   @override
@@ -102,14 +105,16 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
           focusNode: _focusNode,
           autofocus: true,
           onKeyEvent: (event) {
-            if (event is KeyDownEvent) {
-              final key = event.logicalKey;
-              if (key == LogicalKeyboardKey.digit1) widget.state.loadScene(1);
-              if (key == LogicalKeyboardKey.digit2) widget.state.loadScene(2);
-              if (key == LogicalKeyboardKey.digit3) widget.state.loadScene(3);
-              if (key == LogicalKeyboardKey.digit4) widget.state.loadScene(4);
-              if (key == LogicalKeyboardKey.digit0) widget.state.loadScene(0);
-              if (key == LogicalKeyboardKey.space) _fire();
+            final key = event.logicalKey;
+            if (key == LogicalKeyboardKey.space) {
+              if (event is KeyRepeatEvent) {
+                if (!_isRapidFiring) startRapidFire();
+              } else if (event is KeyDownEvent) {
+                fire();
+              } else if (event is KeyUpEvent) {
+                if (_isRapidFiring) stopRapidFire();
+              }
+            } else if (event is KeyDownEvent) {
               if (key == LogicalKeyboardKey.keyC) widget.state.clearShots();
               if (key == LogicalKeyboardKey.keyP) widget.state.togglePlanning();
               if (key == LogicalKeyboardKey.keyA) widget.state.executePlanningAction(PlanningAction.aim);
@@ -117,7 +122,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               if (key == LogicalKeyboardKey.keyD) {
                 final success = widget.state.startSubagentScout();
                 if (success) {
-                  _startSubagentScoutTimer();
+                  startSubagentScoutTimer();
                 }
               }
               if (key == LogicalKeyboardKey.keyX) widget.state.compact();
@@ -189,61 +194,6 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                       ),
                     ),
                   ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: PlanningControls(
-                  state: widget.state,
-                  onSubagentScoutStarted: _startSubagentScoutTimer,
-                ),
-              ),
-              // Fire buttons
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: widget.state.planning.canFire ? _fire : null,
-                      icon: const Icon(Icons.flash_on),
-                      label: const Text('FIRE (Space)'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.state.selectedGun.color,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    GestureDetector(
-                      onLongPressStart: widget.state.planning.canFire ? (_) => _startRapidFire() : null,
-                      onLongPressEnd: widget.state.planning.canFire ? (_) => _stopRapidFire() : null,
-                      child: ElevatedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.local_fire_department),
-                        label: const Text('RAPID FIRE (Hold)'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.withValues(alpha: 0.7),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Keyboard shortcut hints
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Space: Fire | P: Plan | A: Aim | S: Scout | D: Subagent | X: Compact | 1-4: Scenes | 0: Free Play | C: Clear',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
             ],

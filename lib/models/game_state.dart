@@ -79,15 +79,16 @@ class GameState extends ChangeNotifier {
 
   double get effectiveAccuracy {
     final base = _selectedGun.baseAccuracy + _toolAccuracyBonus;
-    final heat = 1.0 - (_heatLevel * 0.6);
+    final aimBonus = _planning.bonus.spreadReduction * 0.3;
+    final heat = 1.0 - (_heatLevel * 0.35);
     final env = _effectiveEnvironmentPenalty;
     final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
-    return (base * heat * env * loadPenalty).clamp(0.05, 0.99);
+    return ((base + aimBonus) * heat * env * loadPenalty).clamp(0.05, 0.99);
   }
 
   double get _effectiveEnvironmentPenalty {
     double penalty = 1.0;
-    int negationsLeft = _planning.bonus.scoutNegations;
+    int negationsLeft = _planning.bonus.scoutNegations + _toolScoutNegations;
     if (_environment.unstable && negationsLeft > 0) {
       negationsLeft--;
     } else if (_environment.unstable) {
@@ -153,11 +154,12 @@ class GameState extends ChangeNotifier {
     _shots.add(shot);
 
     final heatPenalty = 1.0 + _toolHeatPenalty;
-    _heatLevel = (_heatLevel + 0.12 * _selectedGun.heatRate * _contextWindow.heatRateMultiplier * heatPenalty).clamp(0.0, 1.0);
+    _heatLevel = (_heatLevel + 0.09 * _selectedGun.heatRate * _contextWindow.heatRateMultiplier * heatPenalty).clamp(0.0, 1.0);
 
     // Consume planning bonuses after firing
     _planning.consumeBonuses();
 
+    _autoCompactIfNeeded();
     _contextWindow.consumeUserContext(
       ContextSegmentType.shot, 'Shots', _perShotCost, _shotColor,
     );
@@ -177,6 +179,7 @@ class GameState extends ChangeNotifier {
   }
 
   bool executePlanningAction(PlanningAction action) {
+    _autoCompactIfNeeded();
     if (_contextWindow.isNearFull) return false;
     final cost = _planning.contextCostFor(action, skillLevel: _skillLevel);
     final segType = action == PlanningAction.aim
@@ -206,6 +209,15 @@ class GameState extends ChangeNotifier {
     _loadedTools.remove(type);
     notifyListeners();
     return true;
+  }
+
+  int get _toolScoutNegations {
+    int n = 0;
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      n += tool.scoutNegations;
+    }
+    return n;
   }
 
   double get _toolAccuracyBonus {
@@ -239,6 +251,14 @@ class GameState extends ChangeNotifier {
     _contextWindow.compact();
     _planning.bonus.scale(0.4);
     notifyListeners();
+  }
+
+  bool _autoCompactIfNeeded() {
+    if (_contextWindow.isNearFull) {
+      compact();
+      return true;
+    }
+    return false;
   }
 
   bool startSubagentScout() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/game_state.dart';
-import 'widgets/control_panel.dart';
 import 'widgets/game_canvas.dart';
+import 'widgets/sidebar_panel.dart';
 
 void main() {
   runApp(const InferenceGunslingerApp());
@@ -32,6 +32,7 @@ class GunslingerScreen extends StatefulWidget {
 
 class _GunslingerScreenState extends State<GunslingerScreen> {
   final GameState _gameState = GameState();
+  final GlobalKey<FiringRangeState> _firingRangeKey = GlobalKey<FiringRangeState>();
 
   @override
   void dispose() {
@@ -42,14 +43,20 @@ class _GunslingerScreenState extends State<GunslingerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Row(
         children: [
-          ListenableBuilder(
-            listenable: _gameState,
-            builder: (context, _) => ControlPanel(state: _gameState),
+          SidebarPanel(
+            state: _gameState,
+            onFire: () => _firingRangeKey.currentState?.fire(),
+            onStartRapidFire: () => _firingRangeKey.currentState?.startRapidFire(),
+            onStopRapidFire: () => _firingRangeKey.currentState?.stopRapidFire(),
+            onSubagentScoutStarted: () => _firingRangeKey.currentState?.startSubagentScoutTimer(),
+            onFocusFiringRange: () => _firingRangeKey.currentState?.requestFiringFocus(),
           ),
-          const Divider(color: Colors.white24),
-          Expanded(child: GameCanvas(state: _gameState)),
+          const VerticalDivider(width: 1, color: Colors.white24),
+          Expanded(
+            child: FiringRange(key: _firingRangeKey, state: _gameState),
+          ),
         ],
       ),
     );

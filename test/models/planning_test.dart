@@ -20,12 +20,18 @@ void main() {
       expect(planning.canFire, false);
     });
 
-    test('aim applies spread reduction with diminishing returns', () {
+    test('aim applies spread reduction with diminishing returns (expert)', () {
       planning.togglePlanning();
-      planning.applyAction(PlanningAction.aim);
+      planning.applyAction(PlanningAction.aim, skillLevel: 1.0);
       expect(planning.bonus.spreadReduction, closeTo(0.30, 0.01));
-      planning.applyAction(PlanningAction.aim);
+      planning.applyAction(PlanningAction.aim, skillLevel: 1.0);
       expect(planning.bonus.spreadReduction, closeTo(0.45, 0.01));
+    });
+
+    test('novice aim gives less spread reduction', () {
+      planning.togglePlanning();
+      planning.applyAction(PlanningAction.aim, skillLevel: 0.0);
+      expect(planning.bonus.spreadReduction, closeTo(0.15, 0.01));
     });
 
     test('direct scout increments negation count', () {
@@ -58,9 +64,14 @@ void main() {
       expect(planning.bonus.hasBonus, false);
     });
 
-    test('context costs differ for scout types', () {
-      expect(planning.contextCostFor(PlanningAction.directScout), 0.08);
-      expect(planning.contextCostFor(PlanningAction.subagentScout), 0.03);
+    test('expert context costs match base costs', () {
+      expect(planning.contextCostFor(PlanningAction.directScout, skillLevel: 1.0), 0.08);
+      expect(planning.contextCostFor(PlanningAction.subagentScout, skillLevel: 1.0), 0.03);
+    });
+
+    test('novice context costs are 1.5x base', () {
+      expect(planning.contextCostFor(PlanningAction.aim, skillLevel: 0.0), closeTo(0.075, 0.001));
+      expect(planning.contextCostFor(PlanningAction.directScout, skillLevel: 0.0), closeTo(0.12, 0.001));
     });
 
     test('bonus scale reduces proportionally', () {
