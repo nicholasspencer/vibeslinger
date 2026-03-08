@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'context_window.dart';
 import 'gun.dart';
 import 'planning.dart';
+import 'tool.dart';
 
 class EnvironmentFactors {
   final bool windy; // high temperature
@@ -49,6 +50,7 @@ class GameState extends ChangeNotifier {
   final Random _random = Random();
   final ContextWindow _contextWindow = ContextWindow();
   final PlanningState _planning = PlanningState();
+  final Set<ToolType> _loadedTools = {};
 
   Gun get selectedGun => _selectedGun;
   double get skillLevel => _skillLevel;
@@ -57,9 +59,10 @@ class GameState extends ChangeNotifier {
   double get heatLevel => _heatLevel;
   ContextWindow get contextWindow => _contextWindow;
   PlanningState get planning => _planning;
+  Set<ToolType> get loadedTools => Set.unmodifiable(_loadedTools);
 
   double get effectiveAccuracy {
-    final base = _selectedGun.baseAccuracy + _planning.bonus.accuracyBoost;
+    final base = _selectedGun.baseAccuracy + _toolAccuracyBonus;
     final skill = 0.5 + (_skillLevel * 0.5);
     final heat = 1.0 - (_heatLevel * 0.6);
     final env = _effectiveEnvironmentPenalty;
@@ -105,7 +108,7 @@ class GameState extends ChangeNotifier {
 
   ShotResult fire() {
     final accuracy = effectiveAccuracy;
-    final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction;
+    final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction - _toolSpreadBonus;
     final spread = (1.0 - accuracy) * 2.0 * spreadMultiplier;
 
     final u1 = _random.nextDouble();
@@ -149,9 +152,58 @@ class GameState extends ChangeNotifier {
     return result;
   }
 
+  bool loadTool(ToolType type) {
+    if (_loadedTools.contains(type)) return false;
+    final tool = Tool.all.firstWhere((t) => t.type == type);
+    _contextWindow.addToolLoad(tool.systemCost);
+    _loadedTools.add(type);
+    notifyListeners();
+    return true;
+  }
+
+  bool unloadTool(ToolType type) {
+    if (!_loadedTools.contains(type)) return false;
+    final tool = Tool.all.firstWhere((t) => t.type == type);
+    _contextWindow.removeToolLoad(tool.systemCost);
+    _loadedTools.remove(type);
+    notifyListeners();
+    return true;
+  }
+
+  double get _toolAccuracyBonus {
+    double bonus = 0.0;
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      bonus += tool.accuracyBonus;
+    }
+    return bonus;
+  }
+
+  double get _toolSpreadBonus {
+    double bonus = 0.0;
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      bonus += tool.spreadBonus;
+    }
+    return bonus;
+  }
+
+  void compact() {
+    _contextWindow.compact();
+    _planning.bonus.scale(0.4);
+    notifyListeners();
+  }
+
+  void completeSubagentScout() {
+    _planning.applySubagentScoutResult();
+    _planning.setExecutingAction(false);
+    notifyListeners();
+  }
+
   void clearShots() {
     _shots.clear();
     _heatLevel = 0.0;
+    _loadedTools.clear();
     _contextWindow.reset();
     _planning.reset();
     notifyListeners();

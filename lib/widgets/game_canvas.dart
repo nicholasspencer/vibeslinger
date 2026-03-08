@@ -105,8 +105,8 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               if (key == LogicalKeyboardKey.keyC) widget.state.clearShots();
               if (key == LogicalKeyboardKey.keyP) widget.state.togglePlanning();
               if (key == LogicalKeyboardKey.keyA) widget.state.executePlanningAction(PlanningAction.aim);
-              if (key == LogicalKeyboardKey.keyS) widget.state.executePlanningAction(PlanningAction.scout);
-              if (key == LogicalKeyboardKey.keyL) widget.state.executePlanningAction(PlanningAction.load);
+              if (key == LogicalKeyboardKey.keyS) widget.state.executePlanningAction(PlanningAction.directScout);
+              if (key == LogicalKeyboardKey.keyL) widget.state.executePlanningAction(PlanningAction.subagentScout);
             }
           },
           child: Column(

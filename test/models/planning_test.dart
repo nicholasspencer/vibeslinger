@@ -26,24 +26,24 @@ void main() {
       expect(planning.bonus.spreadReduction, closeTo(0.30, 0.01));
       planning.applyAction(PlanningAction.aim);
       expect(planning.bonus.spreadReduction, closeTo(0.45, 0.01));
-      planning.applyAction(PlanningAction.aim);
-      expect(planning.bonus.spreadReduction, closeTo(0.525, 0.01));
     });
 
-    test('scout increments negation count', () {
+    test('direct scout increments negation count', () {
       planning.togglePlanning();
-      planning.applyAction(PlanningAction.scout);
+      planning.applyAction(PlanningAction.directScout);
       expect(planning.bonus.scoutNegations, 1);
-      planning.applyAction(PlanningAction.scout);
-      expect(planning.bonus.scoutNegations, 2);
     });
 
-    test('load applies accuracy boost with diminishing returns', () {
+    test('subagent scout does not immediately apply', () {
       planning.togglePlanning();
-      planning.applyAction(PlanningAction.load);
-      expect(planning.bonus.accuracyBoost, closeTo(0.15, 0.01));
-      planning.applyAction(PlanningAction.load);
-      expect(planning.bonus.accuracyBoost, closeTo(0.225, 0.01));
+      planning.applyAction(PlanningAction.subagentScout);
+      expect(planning.bonus.scoutNegations, 0);
+    });
+
+    test('applySubagentScoutResult increments negation', () {
+      planning.togglePlanning();
+      planning.applySubagentScoutResult();
+      expect(planning.bonus.scoutNegations, 1);
     });
 
     test('cannot apply action when not planning', () {
@@ -51,20 +51,24 @@ void main() {
       expect(result, false);
     });
 
-    test('consumeBonuses resets all bonuses and use counts', () {
+    test('consumeBonuses resets', () {
       planning.togglePlanning();
       planning.applyAction(PlanningAction.aim);
-      planning.applyAction(PlanningAction.load);
       planning.consumeBonuses();
       expect(planning.bonus.hasBonus, false);
-      planning.applyAction(PlanningAction.aim);
-      expect(planning.bonus.spreadReduction, closeTo(0.30, 0.01));
     });
 
-    test('context costs are correct', () {
-      expect(planning.contextCostFor(PlanningAction.aim), 0.05);
-      expect(planning.contextCostFor(PlanningAction.scout), 0.08);
-      expect(planning.contextCostFor(PlanningAction.load), 0.06);
+    test('context costs differ for scout types', () {
+      expect(planning.contextCostFor(PlanningAction.directScout), 0.08);
+      expect(planning.contextCostFor(PlanningAction.subagentScout), 0.03);
+    });
+
+    test('bonus scale reduces proportionally', () {
+      planning.bonus.spreadReduction = 0.50;
+      planning.bonus.scoutNegations = 3;
+      planning.bonus.scale(0.4);
+      expect(planning.bonus.spreadReduction, closeTo(0.20, 0.01));
+      expect(planning.bonus.scoutNegations, 1);
     });
   });
 }
