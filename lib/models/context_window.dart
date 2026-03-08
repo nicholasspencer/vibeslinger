@@ -1,3 +1,21 @@
+import 'package:flutter/material.dart';
+
+enum ContextSegmentType { harness, tool, aim, scout, shot }
+
+class ContextSegment {
+  final ContextSegmentType type;
+  final String label;
+  double amount;
+  final Color color;
+
+  ContextSegment({
+    required this.type,
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+}
+
 class ContextWindow {
   static const double baseSystemLoad = 0.20;
   static const double compactionBufferSize = 0.165;

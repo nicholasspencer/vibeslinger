@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:inference_gunslinger/models/context_window.dart';
 
@@ -54,6 +55,21 @@ void main() {
       ctx.consumeContext(0.30);
       ctx.reset();
       expect(ctx.userLoad, 0.0);
+    });
+  });
+
+  group('ContextSegment', () {
+    test('segment has type, label, amount, and color', () {
+      final seg = ContextSegment(
+        type: ContextSegmentType.harness,
+        label: 'Harness',
+        amount: 0.15,
+        color: const Color(0xFF3366AA),
+      );
+      expect(seg.type, ContextSegmentType.harness);
+      expect(seg.label, 'Harness');
+      expect(seg.amount, 0.15);
+      expect(seg.color, const Color(0xFF3366AA));
     });
   });
 }
