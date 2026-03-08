@@ -4,12 +4,35 @@ import 'package:inference_gunslinger/models/context_window.dart';
 
 void main() {
   group('Tool', () {
-    test('three tools defined', () {
-      expect(Tool.all.length, 3);
+    test('four tools defined', () {
+      expect(Tool.all.length, 4);
+    });
+
+    test('code review tool exists with correct properties', () {
+      final codeReview = Tool.all.firstWhere((t) => t.type == ToolType.codeReview);
+      expect(codeReview.name, 'Code Review');
+      expect(codeReview.systemCost, 0.12);
+      expect(codeReview.accuracyBonus, 0.05);
+      expect(codeReview.spreadBonus, 0.08);
+      expect(codeReview.heatPenalty, 0.5);
     });
 
     test('web search costs 8% system', () {
       expect(Tool.all[0].systemCost, 0.08);
+    });
+
+    test('each tool has a shotCostPenalty', () {
+      final webSearch = Tool.all.firstWhere((t) => t.type == ToolType.webSearch);
+      expect(webSearch.shotCostPenalty, 0.005);
+
+      final codeAnalysis = Tool.all.firstWhere((t) => t.type == ToolType.codeAnalysis);
+      expect(codeAnalysis.shotCostPenalty, 0.01);
+
+      final fileReader = Tool.all.firstWhere((t) => t.type == ToolType.fileReader);
+      expect(fileReader.shotCostPenalty, 0.005);
+
+      final codeReview = Tool.all.firstWhere((t) => t.type == ToolType.codeReview);
+      expect(codeReview.shotCostPenalty, 0.015);
     });
   });
 
