@@ -1,10 +1,13 @@
 import 'dart:math';
-import 'dart:ui';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'context_window.dart';
 import 'gun.dart';
 import 'planning.dart';
 import 'tool.dart';
+
+const _aimColor = Color(0xFF44AA88);
+const _scoutColor = Color(0xFFAACC44);
+const _shotColor = Color(0xFF44CC88);
 
 class EnvironmentFactors {
   final bool windy; // high temperature
@@ -37,8 +40,9 @@ class EnvironmentFactors {
 class ShotResult {
   final Offset offset; // offset from center of target, normalized -1 to 1
   final DateTime time;
+  final bool isBullseye;
 
-  const ShotResult({required this.offset, required this.time});
+  const ShotResult({required this.offset, required this.time, this.isBullseye = false});
 }
 
 class GameState extends ChangeNotifier {
@@ -61,13 +65,24 @@ class GameState extends ChangeNotifier {
   PlanningState get planning => _planning;
   Set<ToolType> get loadedTools => Set.unmodifiable(_loadedTools);
 
+  static const double _baseShotCost = 0.02;
+
+  double get _perShotCost {
+    final skillScale = 1.5 - (_skillLevel * 0.75);
+    double toolPenalties = 0.0;
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      toolPenalties += tool.shotCostPenalty;
+    }
+    return _baseShotCost * skillScale + toolPenalties;
+  }
+
   double get effectiveAccuracy {
     final base = _selectedGun.baseAccuracy + _toolAccuracyBonus;
-    final skill = 0.5 + (_skillLevel * 0.5);
     final heat = 1.0 - (_heatLevel * 0.6);
     final env = _effectiveEnvironmentPenalty;
     final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
-    return (base * skill * heat * env * loadPenalty).clamp(0.05, 1.0);
+    return (base * heat * env * loadPenalty).clamp(0.05, 0.99);
   }
 
   double get _effectiveEnvironmentPenalty {
@@ -111,23 +126,41 @@ class GameState extends ChangeNotifier {
     final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction - _toolSpreadBonus;
     final spread = (1.0 - accuracy) * 2.0 * spreadMultiplier;
 
-    final u1 = _random.nextDouble();
-    final u2 = _random.nextDouble();
-    final z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * pi * u2);
-    final z1 = sqrt(-2.0 * log(u1)) * sin(2.0 * pi * u2);
+    // Bullseye check: above 80% accuracy, chance scales linearly up to ~15% at 99%
+    bool bullseye = false;
+    if (accuracy > 0.80) {
+      final bullseyeChance = (accuracy - 0.80) / 0.20 * 0.15;
+      if (_random.nextDouble() < bullseyeChance) {
+        bullseye = true;
+      }
+    }
 
-    final offset = Offset(
-      (z0 * spread * 0.3).clamp(-1.0, 1.0),
-      (z1 * spread * 0.3).clamp(-1.0, 1.0),
-    );
+    final Offset offset;
+    if (bullseye) {
+      offset = Offset.zero;
+    } else {
+      final u1 = _random.nextDouble();
+      final u2 = _random.nextDouble();
+      final z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * pi * u2);
+      final z1 = sqrt(-2.0 * log(u1)) * sin(2.0 * pi * u2);
+      offset = Offset(
+        (z0 * spread * 0.3).clamp(-1.0, 1.0),
+        (z1 * spread * 0.3).clamp(-1.0, 1.0),
+      );
+    }
 
-    final shot = ShotResult(offset: offset, time: DateTime.now());
+    final shot = ShotResult(offset: offset, time: DateTime.now(), isBullseye: bullseye);
     _shots.add(shot);
 
-    _heatLevel = (_heatLevel + 0.12 * _contextWindow.heatRateMultiplier).clamp(0.0, 1.0);
+    final heatPenalty = 1.0 + _toolHeatPenalty;
+    _heatLevel = (_heatLevel + 0.12 * _selectedGun.heatRate * _contextWindow.heatRateMultiplier * heatPenalty).clamp(0.0, 1.0);
 
     // Consume planning bonuses after firing
     _planning.consumeBonuses();
+
+    _contextWindow.consumeUserContext(
+      ContextSegmentType.shot, 'Shots', _perShotCost, _shotColor,
+    );
 
     notifyListeners();
     return shot;
@@ -145,9 +178,14 @@ class GameState extends ChangeNotifier {
 
   bool executePlanningAction(PlanningAction action) {
     if (_contextWindow.isNearFull) return false;
-    final cost = _planning.contextCostFor(action);
-    if (!_contextWindow.consumeContext(cost)) return false;
-    final result = _planning.applyAction(action);
+    final cost = _planning.contextCostFor(action, skillLevel: _skillLevel);
+    final segType = action == PlanningAction.aim
+        ? ContextSegmentType.aim
+        : ContextSegmentType.scout;
+    final segLabel = action == PlanningAction.aim ? 'Aims' : 'Scouts';
+    final segColor = action == PlanningAction.aim ? _aimColor : _scoutColor;
+    if (!_contextWindow.consumeUserContext(segType, segLabel, cost, segColor)) return false;
+    final result = _planning.applyAction(action, skillLevel: _skillLevel);
     if (result) notifyListeners();
     return result;
   }
@@ -155,7 +193,7 @@ class GameState extends ChangeNotifier {
   bool loadTool(ToolType type) {
     if (_loadedTools.contains(type)) return false;
     final tool = Tool.all.firstWhere((t) => t.type == type);
-    _contextWindow.addToolLoad(tool.systemCost);
+    _contextWindow.addToolSegment(tool.name, tool.systemCost, const Color(0xFF5599DD));
     _loadedTools.add(type);
     notifyListeners();
     return true;
@@ -164,7 +202,7 @@ class GameState extends ChangeNotifier {
   bool unloadTool(ToolType type) {
     if (!_loadedTools.contains(type)) return false;
     final tool = Tool.all.firstWhere((t) => t.type == type);
-    _contextWindow.removeToolLoad(tool.systemCost);
+    _contextWindow.removeToolSegment(tool.name);
     _loadedTools.remove(type);
     notifyListeners();
     return true;
@@ -186,6 +224,15 @@ class GameState extends ChangeNotifier {
       bonus += tool.spreadBonus;
     }
     return bonus;
+  }
+
+  double get _toolHeatPenalty {
+    double penalty = 0.0;
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      penalty += tool.heatPenalty;
+    }
+    return penalty;
   }
 
   void compact() {
@@ -218,39 +265,4 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void loadScene(int sceneIndex) {
-    clearShots();
-    switch (sceneIndex) {
-      case 1: // The Expert
-        _selectedGun = Gun.all[0];
-        _skillLevel = 1.0;
-        _environment = const EnvironmentFactors();
-        break;
-      case 2: // The Novice
-        _selectedGun = Gun.all[2];
-        _skillLevel = 0.1;
-        _environment = const EnvironmentFactors(
-          windy: true,
-          lowLight: true,
-          unstable: true,
-        );
-        break;
-      case 3: // Burnout
-        _selectedGun = Gun.all[0];
-        _skillLevel = 1.0;
-        _environment = const EnvironmentFactors();
-        break;
-      case 4: // The Planner
-        _selectedGun = Gun.all[0];
-        _skillLevel = 1.0;
-        _environment = const EnvironmentFactors(windy: true);
-        break;
-      default: // Free Play
-        _selectedGun = Gun.all[0];
-        _skillLevel = 0.5;
-        _environment = const EnvironmentFactors();
-        break;
-    }
-    notifyListeners();
-  }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:inference_gunslinger/models/context_window.dart';
 import 'package:inference_gunslinger/models/game_state.dart';
 import 'package:inference_gunslinger/models/gun.dart';
+import 'package:inference_gunslinger/models/planning.dart';
+import 'package:inference_gunslinger/models/tool.dart';
 
 void main() {
   group('GameState', () {
@@ -10,14 +13,18 @@ void main() {
       state = GameState();
     });
 
-    test('default effective accuracy uses first gun at mid skill', () {
-      expect(state.effectiveAccuracy, closeTo(0.69, 0.01));
+    test('default effective accuracy equals gun base accuracy', () {
+      // Skill no longer affects base accuracy — model capability is fixed
+      expect(state.effectiveAccuracy, closeTo(0.55, 0.01));
     });
 
-    test('expert with precision rifle has high accuracy', () {
-      state.setSkillLevel(1.0);
+    test('novice and expert have same base accuracy', () {
       state.selectGun(Gun.all[0]);
-      expect(state.effectiveAccuracy, closeTo(0.92, 0.01));
+      state.setSkillLevel(0.0);
+      final novice = state.effectiveAccuracy;
+      state.setSkillLevel(1.0);
+      final expert = state.effectiveAccuracy;
+      expect(novice, closeTo(expert, 0.01));
     });
 
     test('environment penalties stack', () {
@@ -28,13 +35,15 @@ void main() {
         lowLight: true,
         unstable: true,
       ));
-      expect(state.effectiveAccuracy, closeTo(0.518, 0.02));
+      // 0.55 * 0.82 * 0.88 * 0.78 ≈ 0.309
+      expect(state.effectiveAccuracy, closeTo(0.309, 0.02));
     });
 
     test('firing increases heat', () {
       expect(state.heatLevel, 0.0);
       state.fire();
-      expect(state.heatLevel, closeTo(0.12, 0.01));
+      // 0.12 * 1.3 (Opus heat rate) = 0.156
+      expect(state.heatLevel, closeTo(0.156, 0.01));
     });
 
     test('heat degrades accuracy', () {
@@ -54,10 +63,123 @@ void main() {
       expect(state.heatLevel, 0.0);
     });
 
-    test('loadScene 1 sets expert config', () {
-      state.loadScene(1);
-      expect(state.skillLevel, 1.0);
-      expect(state.selectedGun.type, GunType.precisionRifle);
+    test('clearShots resets tools', () {
+      state.clearShots();
+      expect(state.loadedTools, isEmpty);
+      expect(state.shots, isEmpty);
+    });
+
+    test('accuracy is capped at 99%', () {
+      state.setSkillLevel(1.0);
+      state.selectGun(Gun.all[0]); // Claude Opus 4.6, 55% base
+      state.loadTool(ToolType.codeAnalysis); // +10%
+      state.loadTool(ToolType.codeReview); // +5%
+      // Even with bonuses, should cap at 99%
+      expect(state.effectiveAccuracy, lessThanOrEqualTo(0.99));
+    });
+
+    test('no bullseyes below 80% effective accuracy', () {
+      state.setSkillLevel(1.0);
+      state.selectGun(Gun.all[0]); // Opus 55% base
+      // Even with all accuracy tools: 55% + 15% = 70%, below 80% threshold
+      state.loadTool(ToolType.codeAnalysis);
+      state.loadTool(ToolType.codeReview);
+      final bullseyes = <ShotResult>[];
+      for (var i = 0; i < 200; i++) {
+        final shot = state.fire();
+        if (shot.isBullseye) bullseyes.add(shot);
+        state.coolDown(0.2);
+      }
+      // Accuracy maxes at ~70%, well below 80% bullseye threshold
+      expect(bullseyes, isEmpty);
+    });
+
+    test('code review tool increases heat generation', () {
+      state.setSkillLevel(0.5);
+      state.fire();
+      final heatWithout = state.heatLevel;
+      state.clearShots();
+
+      state.loadTool(ToolType.codeReview);
+      state.fire();
+      final heatWith = state.heatLevel;
+
+      expect(heatWith, greaterThan(heatWithout));
+    });
+
+    test('firing consumes user context into shot segment', () {
+      state.fire();
+      final shotSegment = state.contextWindow.userSegments
+          .where((s) => s.type == ContextSegmentType.shot)
+          .firstOrNull;
+      expect(shotSegment, isNotNull);
+      expect(shotSegment!.amount, greaterThan(0));
+    });
+
+    test('expert shot cost is less than novice', () {
+      state.setSkillLevel(1.0);
+      state.fire();
+      final expertCost = state.contextWindow.userSegments
+          .firstWhere((s) => s.type == ContextSegmentType.shot)
+          .amount;
+
+      state.clearShots();
+      state.setSkillLevel(0.0);
+      state.fire();
+      final noviceCost = state.contextWindow.userSegments
+          .firstWhere((s) => s.type == ContextSegmentType.shot)
+          .amount;
+
+      expect(expertCost, lessThan(noviceCost));
+    });
+
+    test('tools increase per-shot context cost', () {
+      state.setSkillLevel(0.5);
+      state.fire();
+      final baseCost = state.contextWindow.userSegments
+          .firstWhere((s) => s.type == ContextSegmentType.shot)
+          .amount;
+
+      state.clearShots();
+      state.loadTool(ToolType.codeReview);
+      state.fire();
+      final toolCost = state.contextWindow.userSegments
+          .firstWhere((s) => s.type == ContextSegmentType.shot)
+          .amount;
+
+      expect(toolCost, greaterThan(baseCost));
+    });
+
+    test('aim action creates aim user segment', () {
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.aim);
+      final aimSeg = state.contextWindow.userSegments
+          .where((s) => s.type == ContextSegmentType.aim)
+          .firstOrNull;
+      expect(aimSeg, isNotNull);
+      expect(aimSeg!.amount, greaterThan(0));
+    });
+
+    test('scout action creates scout user segment', () {
+      state.togglePlanning();
+      state.executePlanningAction(PlanningAction.directScout);
+      final scoutSeg = state.contextWindow.userSegments
+          .where((s) => s.type == ContextSegmentType.scout)
+          .firstOrNull;
+      expect(scoutSeg, isNotNull);
+      expect(scoutSeg!.amount, greaterThan(0));
+    });
+
+    test('loading tool adds system segment', () {
+      state.loadTool(ToolType.webSearch);
+      expect(state.contextWindow.systemSegments.length, 2); // harness + tool
+      expect(state.contextWindow.systemSegments[1].label, 'Web Search');
+    });
+
+    test('unloading tool removes system segment', () {
+      state.loadTool(ToolType.webSearch);
+      state.unloadTool(ToolType.webSearch);
+      expect(state.contextWindow.systemSegments.length, 1); // harness only
     });
   });
 }
