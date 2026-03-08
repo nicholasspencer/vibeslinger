@@ -137,6 +137,10 @@ class ControlPanel extends StatelessWidget {
         child: const Text('3: Burnout', style: TextStyle(color: Colors.white54)),
       ),
       TextButton(
+        onPressed: () => state.loadScene(4),
+        child: const Text('4: Planner', style: TextStyle(color: Colors.white54)),
+      ),
+      TextButton(
         onPressed: () => state.loadScene(0),
         child: const Text('0: Free Play', style: TextStyle(color: Colors.white54)),
       ),

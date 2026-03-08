@@ -2,9 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/game_state.dart';
+import '../models/planning.dart';
 import '../painters/stick_figure_painter.dart';
 import '../painters/target_painter.dart';
+import 'context_bar.dart';
 import 'heat_meter.dart';
+import 'planning_controls.dart';
 
 class GameCanvas extends StatefulWidget {
   final GameState state;
@@ -60,6 +63,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
   }
 
   void _fire() {
+    if (!widget.state.planning.canFire) return;
     widget.state.fire();
     _laserController.forward(from: 0.0);
   }
@@ -95,9 +99,14 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               if (key == LogicalKeyboardKey.digit1) widget.state.loadScene(1);
               if (key == LogicalKeyboardKey.digit2) widget.state.loadScene(2);
               if (key == LogicalKeyboardKey.digit3) widget.state.loadScene(3);
+              if (key == LogicalKeyboardKey.digit4) widget.state.loadScene(4);
               if (key == LogicalKeyboardKey.digit0) widget.state.loadScene(0);
               if (key == LogicalKeyboardKey.space) _fire();
               if (key == LogicalKeyboardKey.keyC) widget.state.clearShots();
+              if (key == LogicalKeyboardKey.keyP) widget.state.togglePlanning();
+              if (key == LogicalKeyboardKey.keyA) widget.state.executePlanningAction(PlanningAction.aim);
+              if (key == LogicalKeyboardKey.keyS) widget.state.executePlanningAction(PlanningAction.scout);
+              if (key == LogicalKeyboardKey.keyL) widget.state.executePlanningAction(PlanningAction.load);
             }
           },
           child: Column(
@@ -128,6 +137,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                   ],
                 ),
               ),
+              ContextBar(contextWindow: widget.state.contextWindow),
               // Main canvas area
               Expanded(
                 child: Row(
@@ -143,6 +153,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                           isLowLight: widget.state.environment.lowLight,
                           isUnstable: widget.state.environment.unstable,
                           wobblePhase: _wobbleController.value * 6.28,
+                          contextWindow: widget.state.contextWindow,
                         ),
                         size: Size.infinite,
                       ),
@@ -166,6 +177,10 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: PlanningControls(state: widget.state),
+              ),
               // Fire buttons
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -173,7 +188,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _fire,
+                      onPressed: widget.state.planning.canFire ? _fire : null,
                       icon: const Icon(Icons.flash_on),
                       label: const Text('FIRE (Space)'),
                       style: ElevatedButton.styleFrom(
@@ -187,8 +202,8 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
                     ),
                     const SizedBox(width: 16),
                     GestureDetector(
-                      onLongPressStart: (_) => _startRapidFire(),
-                      onLongPressEnd: (_) => _stopRapidFire(),
+                      onLongPressStart: widget.state.planning.canFire ? (_) => _startRapidFire() : null,
+                      onLongPressEnd: widget.state.planning.canFire ? (_) => _stopRapidFire() : null,
                       child: ElevatedButton.icon(
                         onPressed: () {},
                         icon: const Icon(Icons.local_fire_department),
@@ -210,7 +225,7 @@ class _GameCanvasState extends State<GameCanvas> with TickerProviderStateMixin {
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Space: Fire | 1-3: Scenes | 0: Free Play | C: Clear',
+                  'Space: Fire | P: Plan | A/S/L: Aim/Scout/Load | 1-4: Scenes | 0: Free Play | C: Clear',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
