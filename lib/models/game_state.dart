@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'context_window.dart';
 import 'gun.dart';
 
 class EnvironmentFactors {
@@ -45,19 +46,22 @@ class GameState extends ChangeNotifier {
   final List<ShotResult> _shots = [];
   double _heatLevel = 0.0; // 0.0 cool, 1.0 overheated
   final Random _random = Random();
+  final ContextWindow _contextWindow = ContextWindow();
 
   Gun get selectedGun => _selectedGun;
   double get skillLevel => _skillLevel;
   EnvironmentFactors get environment => _environment;
   List<ShotResult> get shots => List.unmodifiable(_shots);
   double get heatLevel => _heatLevel;
+  ContextWindow get contextWindow => _contextWindow;
 
   double get effectiveAccuracy {
     final base = _selectedGun.baseAccuracy;
     final skill = 0.5 + (_skillLevel * 0.5); // skill scales from 0.5x to 1.0x
     final heat = 1.0 - (_heatLevel * 0.6); // heat degrades up to 60%
     final env = _environment.penaltyMultiplier;
-    return (base * skill * heat * env).clamp(0.05, 1.0);
+    final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
+    return (base * skill * heat * env * loadPenalty).clamp(0.05, 1.0);
   }
 
   void selectGun(Gun gun) {
@@ -94,7 +98,7 @@ class GameState extends ChangeNotifier {
     _shots.add(shot);
 
     // Increase heat
-    _heatLevel = (_heatLevel + 0.12).clamp(0.0, 1.0);
+    _heatLevel = (_heatLevel + 0.12 * _contextWindow.heatRateMultiplier).clamp(0.0, 1.0);
 
     notifyListeners();
     return shot;
@@ -108,6 +112,7 @@ class GameState extends ChangeNotifier {
   void clearShots() {
     _shots.clear();
     _heatLevel = 0.0;
+    _contextWindow.reset();
     notifyListeners();
   }
 
