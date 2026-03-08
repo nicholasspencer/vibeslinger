@@ -23,14 +23,14 @@ class PlanningBonus {
 }
 
 class PlanningState {
-  bool _isPlanning = false;
+  bool _isPlanning = true;
   bool _isExecutingAction = false;
   final PlanningBonus bonus = PlanningBonus();
   int _aimUses = 0;
 
   bool get isPlanning => _isPlanning;
   bool get isExecutingAction => _isExecutingAction;
-  bool get canFire => !_isPlanning && !_isExecutingAction;
+  bool get canFire => !_isExecutingAction;
 
   double _diminish(double base, int uses) => base / (1 << uses);
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'models/game_state.dart';
+import 'services/audio_service.dart';
 import 'widgets/game_canvas.dart';
 import 'widgets/sidebar_panel.dart';
 
@@ -33,6 +34,12 @@ class GunslingerScreen extends StatefulWidget {
 class _GunslingerScreenState extends State<GunslingerScreen> {
   final GameState _gameState = GameState();
   final GlobalKey<FiringRangeState> _firingRangeKey = GlobalKey<FiringRangeState>();
+
+  @override
+  void initState() {
+    super.initState();
+    AudioService.instance.init();
+  }
 
   @override
   void dispose() {

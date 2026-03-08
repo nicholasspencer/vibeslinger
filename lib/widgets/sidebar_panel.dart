@@ -3,6 +3,7 @@ import '../models/game_state.dart';
 import '../models/gun.dart';
 import '../models/planning.dart';
 import '../models/tool.dart';
+import '../services/audio_service.dart';
 import 'sidebar_info_page.dart';
 
 class SidebarPanel extends StatefulWidget {
@@ -29,6 +30,7 @@ class SidebarPanel extends StatefulWidget {
 
 class _SidebarPanelState extends State<SidebarPanel> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final _audio = AudioService.instance;
 
   void _showInfo(String title, String description, {String? accuracyImpact}) {
     _navigatorKey.currentState?.push(
@@ -107,7 +109,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
               // Planning section
               _sectionLabel('PLANNING'),
               _infoRow(
-                child: _buildPlanToggle(isPlanning),
+                child: _buildPlanToggle(isPlanning, () => _audio.playPlanToggle(!isPlanning)),
                 onInfo: () => _showInfo(
                   'Planning Mode',
                   'Pauses firing to improve accuracy. While in plan mode, you can Aim, Scout, load Tools, and Compact.\n\n'
@@ -123,7 +125,9 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   enabled: isPlanning && !isExecuting,
                   color: Colors.cyan,
                   onPressed: () {
-                    widget.state.executePlanningAction(PlanningAction.aim);
+                    if (widget.state.executePlanningAction(PlanningAction.aim)) {
+                      _audio.playAim();
+                    }
                     widget.onFocusFiringRange?.call();
                   },
                 ),
@@ -169,6 +173,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   enabled: widget.state.contextWindow.userLoad > 0,
                   color: Colors.deepOrange,
                   onPressed: () {
+                    _audio.playCompact();
                     widget.state.compact();
                     widget.onFocusFiringRange?.call();
                   },
@@ -192,6 +197,9 @@ class _SidebarPanelState extends State<SidebarPanel> {
                 child: ElevatedButton.icon(
                   onPressed: widget.state.planning.canFire
                       ? () {
+                          if (widget.state.planning.isPlanning) {
+                            widget.state.togglePlanning();
+                          }
                           widget.onFire();
                           widget.onFocusFiringRange?.call();
                         }
@@ -199,7 +207,9 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   icon: const Icon(Icons.flash_on),
                   label: const Text('FIRE (Space)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.state.selectedGun.color,
+                    backgroundColor: isPlanning
+                        ? Colors.amber.withValues(alpha: 0.4)
+                        : widget.state.selectedGun.color,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -210,7 +220,12 @@ class _SidebarPanelState extends State<SidebarPanel> {
                 width: double.infinity,
                 child: GestureDetector(
                   onLongPressStart: widget.state.planning.canFire
-                      ? (_) => widget.onStartRapidFire()
+                      ? (_) {
+                          if (widget.state.planning.isPlanning) {
+                            widget.state.togglePlanning();
+                          }
+                          widget.onStartRapidFire();
+                        }
                       : null,
                   onLongPressEnd: widget.state.planning.canFire
                       ? (_) {
@@ -237,6 +252,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
+                    _audio.playClear();
                     widget.state.clearShots();
                     widget.onFocusFiringRange?.call();
                   },
@@ -313,6 +329,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
       }).toList(),
       onChanged: (type) {
         if (type != null) {
+          _audio.playGunSelect();
           widget.state.selectGun(Gun.all.firstWhere((g) => g.type == type));
           widget.onFocusFiringRange?.call();
         }
@@ -348,11 +365,12 @@ class _SidebarPanelState extends State<SidebarPanel> {
     );
   }
 
-  Widget _buildPlanToggle(bool isPlanning) {
+  Widget _buildPlanToggle(bool isPlanning, VoidCallback onSound) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () {
+          onSound();
           widget.state.togglePlanning();
           widget.onFocusFiringRange?.call();
         },
@@ -403,10 +421,13 @@ class _SidebarPanelState extends State<SidebarPanel> {
       color: const Color(0xFF2A2A4E),
       onSelected: (action) {
         if (action == PlanningAction.directScout) {
-          widget.state.executePlanningAction(PlanningAction.directScout);
+          if (widget.state.executePlanningAction(PlanningAction.directScout)) {
+            _audio.playScout();
+          }
         } else if (action == PlanningAction.subagentScout) {
           final success = widget.state.startSubagentScout();
           if (success) {
+            _audio.playScoutStart();
             widget.onSubagentScoutStarted?.call();
           }
         }
@@ -463,9 +484,17 @@ class _SidebarPanelState extends State<SidebarPanel> {
         child: ElevatedButton.icon(
           onPressed: enabled ? null : null,
           icon: const Icon(Icons.visibility, size: 16),
-          label: const Text('Scout (S)', style: TextStyle(fontSize: 12)),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Scout (S)', style: TextStyle(fontSize: 12)),
+              const Icon(Icons.arrow_drop_down, size: 18),
+            ],
+          ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: enabled ? Colors.teal.withValues(alpha: 0.5) : null,
+            backgroundColor: enabled
+                ? Colors.teal.withValues(alpha: 0.7)
+                : Colors.teal.withValues(alpha: 0.2),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),
@@ -484,9 +513,9 @@ class _SidebarPanelState extends State<SidebarPanel> {
       color: const Color(0xFF2A2A4E),
       onSelected: (type) {
         if (widget.state.loadedTools.contains(type)) {
-          widget.state.unloadTool(type);
+          if (widget.state.unloadTool(type)) _audio.playToolUnload();
         } else {
-          widget.state.loadTool(type);
+          if (widget.state.loadTool(type)) _audio.playToolLoad();
         }
         widget.onFocusFiringRange?.call();
       },
@@ -524,12 +553,20 @@ class _SidebarPanelState extends State<SidebarPanel> {
         child: ElevatedButton.icon(
           onPressed: enabled ? null : null,
           icon: const Icon(Icons.build, size: 16),
-          label: Text(
-            'Tools ${loadedCount > 0 ? "[$loadedCount]" : ""}',
-            style: const TextStyle(fontSize: 12),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Tools ${loadedCount > 0 ? "[$loadedCount]" : ""}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 18),
+            ],
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: enabled ? Colors.lime.withValues(alpha: 0.5) : null,
+            backgroundColor: enabled
+                ? Colors.lime.withValues(alpha: 0.7)
+                : Colors.lime.withValues(alpha: 0.2),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),

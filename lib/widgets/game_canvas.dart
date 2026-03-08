@@ -5,6 +5,7 @@ import '../models/game_state.dart';
 import '../models/planning.dart';
 import '../painters/stick_figure_painter.dart';
 import '../painters/target_painter.dart';
+import '../services/audio_service.dart';
 import 'context_bar.dart';
 import 'heat_meter.dart';
 
@@ -24,6 +25,8 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
   Timer? _cooldownTimer;
   Timer? _rapidFireTimer;
   bool _isRapidFiring = false;
+  bool _heatWarningActive = false;
+  final _audio = AudioService.instance;
 
   @override
   void initState() {
@@ -46,6 +49,7 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
       (_) {
         if (widget.state.heatLevel > 0 && !_isRapidFiring) {
           widget.state.coolDown(0.02);
+          if (widget.state.heatLevel < 0.6) _heatWarningActive = false;
         }
       },
     );
@@ -63,8 +67,18 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
 
   void fire() {
     if (!widget.state.planning.canFire) return;
-    widget.state.fire();
+    if (widget.state.planning.isPlanning) {
+      widget.state.togglePlanning();
+    }
+    _audio.playFire();
+    final shot = widget.state.fire();
     _laserController.forward(from: 0.0);
+    if (shot.isBullseye) _audio.playBullseye();
+    if (widget.state.heatLevel > 0.8 && !_heatWarningActive) {
+      _heatWarningActive = true;
+      _audio.playHeatWarning();
+    }
+    if (widget.state.heatLevel < 0.6) _heatWarningActive = false;
   }
 
   void startRapidFire() {
@@ -85,6 +99,7 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         widget.state.completeSubagentScout();
+        _audio.playScoutComplete();
       }
     });
   }
@@ -115,17 +130,35 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
                 if (_isRapidFiring) stopRapidFire();
               }
             } else if (event is KeyDownEvent) {
-              if (key == LogicalKeyboardKey.keyC) widget.state.clearShots();
-              if (key == LogicalKeyboardKey.keyP) widget.state.togglePlanning();
-              if (key == LogicalKeyboardKey.keyA) widget.state.executePlanningAction(PlanningAction.aim);
-              if (key == LogicalKeyboardKey.keyS) widget.state.executePlanningAction(PlanningAction.directScout);
+              if (key == LogicalKeyboardKey.keyC) {
+                _audio.playClear();
+                widget.state.clearShots();
+              }
+              if (key == LogicalKeyboardKey.keyP) {
+                _audio.playPlanToggle(!widget.state.planning.isPlanning);
+                widget.state.togglePlanning();
+              }
+              if (key == LogicalKeyboardKey.keyA) {
+                if (widget.state.executePlanningAction(PlanningAction.aim)) {
+                  _audio.playAim();
+                }
+              }
+              if (key == LogicalKeyboardKey.keyS) {
+                if (widget.state.executePlanningAction(PlanningAction.directScout)) {
+                  _audio.playScout();
+                }
+              }
               if (key == LogicalKeyboardKey.keyD) {
                 final success = widget.state.startSubagentScout();
                 if (success) {
+                  _audio.playScoutStart();
                   startSubagentScoutTimer();
                 }
               }
-              if (key == LogicalKeyboardKey.keyX) widget.state.compact();
+              if (key == LogicalKeyboardKey.keyX) {
+                _audio.playCompact();
+                widget.state.compact();
+              }
             }
           },
           child: Column(
