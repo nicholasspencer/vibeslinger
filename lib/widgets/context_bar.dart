@@ -9,6 +9,7 @@ class ContextBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = contextWindow.totalLoad;
+    final free = ((1.0 - total) * 100).clamp(0, 100).toStringAsFixed(0);
     final inDanger = contextWindow.isInCompactionZone;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -18,7 +19,7 @@ class ContextBar extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Context: ${(total * 100).toStringAsFixed(0)}%',
+                'Free Space: $free%',
                 style: TextStyle(
                   color: inDanger ? Colors.red : (contextWindow.isOverloaded ? Colors.orange : Colors.white70),
                   fontSize: 12,
