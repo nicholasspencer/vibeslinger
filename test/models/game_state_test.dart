@@ -304,5 +304,35 @@ void main() {
       expect(state.workspace.files[0].isLoaded, true);
       expect(state.workspace.passiveSpreadReduction, 0.10);
     });
+
+    test('full session-workspace gameplay loop', () {
+      // Session 1: plan, scout, save, fire
+      state.executePlanningAction(PlanningAction.aim);
+      state.executePlanningAction(PlanningAction.directScout);
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      state.saveToWorkspace(WorkspaceFileType.research);
+      expect(state.workspace.files.length, 2);
+      state.fire();
+
+      // New session — files persist, context clears
+      state.newSession();
+      expect(state.workspace.files.length, 2);
+      expect(state.workspace.files[0].isLoaded, false);
+      expect(state.contextWindow.userLoad, 0.0);
+      expect(state.shots, isEmpty);
+      expect(state.workspace.sessionNumber, 2);
+
+      // Session 2: load files back, verify bonuses
+      state.loadWorkspaceFile(0); // plan
+      state.loadWorkspaceFile(1); // research
+      expect(state.workspace.loadedFiles.length, 2);
+
+      // Loaded plan should improve accuracy
+      final withFiles = state.effectiveAccuracy;
+      state.unloadWorkspaceFile(0);
+      state.unloadWorkspaceFile(1);
+      final withoutFiles = state.effectiveAccuracy;
+      expect(withFiles, greaterThan(withoutFiles));
+    });
   });
 }
