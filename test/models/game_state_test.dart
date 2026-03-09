@@ -30,7 +30,6 @@ void main() {
 
     test('direct scout improves effective accuracy', () {
       final before = state.effectiveAccuracy;
-      state.togglePlanning();
       state.executePlanningAction(PlanningAction.directScout);
       expect(state.effectiveAccuracy, greaterThan(before));
     });
@@ -147,7 +146,6 @@ void main() {
     });
 
     test('aim action creates aim user segment', () {
-      state.togglePlanning();
       state.executePlanningAction(PlanningAction.aim);
       final aimSeg = state.contextWindow.userSegments
           .where((s) => s.type == ContextSegmentType.aim)
@@ -157,7 +155,6 @@ void main() {
     });
 
     test('scout action creates scout user segment', () {
-      state.togglePlanning();
       state.executePlanningAction(PlanningAction.directScout);
       final scoutSeg = state.contextWindow.userSegments
           .where((s) => s.type == ContextSegmentType.scout)
@@ -200,20 +197,18 @@ void main() {
 
     test('aim improves effective accuracy', () {
       final before = state.effectiveAccuracy;
-      state.togglePlanning();
       state.executePlanningAction(PlanningAction.aim);
       expect(state.effectiveAccuracy, greaterThan(before));
     });
 
     test('aim accuracy bonus scales with skill level', () {
       state.setSkillLevel(1.0);
-      state.togglePlanning();
       state.executePlanningAction(PlanningAction.aim);
       final expert = state.effectiveAccuracy;
 
-      state.clearShots();
+      state.clearShots(); // clearShots calls planning.reset() which sets _isPlanning = false
       state.setSkillLevel(0.0);
-      state.togglePlanning();
+      state.togglePlanning(); // re-enable planning after reset
       state.executePlanningAction(PlanningAction.aim);
       final novice = state.effectiveAccuracy;
 
@@ -225,14 +220,12 @@ void main() {
         state.fire();
         state.coolDown(0.2);
       }
-      state.togglePlanning();
       final result = state.executePlanningAction(PlanningAction.aim);
       expect(result, true);
       expect(state.contextWindow.isCompacted, true);
     });
 
     test('saveToWorkspace creates file and costs context', () {
-      state.togglePlanning();
       final result = state.saveToWorkspace(WorkspaceFileType.plan);
       expect(result, true);
       expect(state.workspace.files.length, 1);
@@ -243,7 +236,6 @@ void main() {
     });
 
     test('loadWorkspaceFile costs context', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       final loadBefore = state.contextWindow.userLoad;
       state.loadWorkspaceFile(0);
@@ -252,7 +244,6 @@ void main() {
     });
 
     test('unloadWorkspaceFile frees context', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       state.loadWorkspaceFile(0);
       final loadBefore = state.contextWindow.userLoad;
@@ -262,7 +253,6 @@ void main() {
     });
 
     test('loaded plan improves spread reduction in accuracy', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       final beforeLoad = state.effectiveAccuracy;
       state.loadWorkspaceFile(0);
@@ -271,7 +261,6 @@ void main() {
 
     test('loaded research reduces aim cost', () {
       state.setSkillLevel(1.0);
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.research);
       state.loadWorkspaceFile(0);
       final costWithResearch = state.planning.contextCostFor(
@@ -281,7 +270,6 @@ void main() {
     });
 
     test('newSession clears context and unloads files but keeps them', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       state.loadWorkspaceFile(0);
       state.fire();
@@ -301,7 +289,6 @@ void main() {
     });
 
     test('file reader tool halves workspace load cost', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       state.loadTool(ToolType.fileReader);
       final loadBefore = state.contextWindow.userLoad;
@@ -311,7 +298,6 @@ void main() {
     });
 
     test('firing does NOT consume workspace file bonuses', () {
-      state.togglePlanning();
       state.saveToWorkspace(WorkspaceFileType.plan);
       state.loadWorkspaceFile(0);
       state.fire();

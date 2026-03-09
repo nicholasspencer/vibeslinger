@@ -9,19 +9,17 @@ void main() {
       planning = PlanningState();
     });
 
-    test('starts not in planning mode', () {
-      expect(planning.isPlanning, false);
+    test('starts in planning mode', () {
+      expect(planning.isPlanning, true);
       expect(planning.canFire, true);
     });
 
-    test('toggle enables planning and disables fire', () {
+    test('toggle disables planning', () {
       planning.togglePlanning();
-      expect(planning.isPlanning, true);
-      expect(planning.canFire, false);
+      expect(planning.isPlanning, false);
     });
 
     test('aim applies spread reduction with diminishing returns (expert)', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.aim, skillLevel: 1.0);
       expect(planning.bonus.spreadReduction, closeTo(0.30, 0.01));
       planning.applyAction(PlanningAction.aim, skillLevel: 1.0);
@@ -29,43 +27,38 @@ void main() {
     });
 
     test('novice aim gives less spread reduction', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.aim, skillLevel: 0.0);
       expect(planning.bonus.spreadReduction, closeTo(0.15, 0.01));
     });
 
     test('direct scout adds spread reduction', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.directScout);
       expect(planning.bonus.spreadReduction, closeTo(0.20, 0.01));
     });
 
     test('multiple direct scouts stack', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.directScout);
       planning.applyAction(PlanningAction.directScout);
       expect(planning.bonus.spreadReduction, closeTo(0.40, 0.01));
     });
 
     test('subagent scout does not immediately apply', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.subagentScout);
       expect(planning.bonus.spreadReduction, 0.0);
     });
 
     test('applySubagentScoutResult adds spread reduction', () {
-      planning.togglePlanning();
       planning.applySubagentScoutResult();
       expect(planning.bonus.spreadReduction, closeTo(0.15, 0.01));
     });
 
     test('cannot apply action when not planning', () {
+      planning.togglePlanning(); // disable planning
       final result = planning.applyAction(PlanningAction.aim);
       expect(result, false);
     });
 
     test('consumeBonuses resets', () {
-      planning.togglePlanning();
       planning.applyAction(PlanningAction.aim);
       planning.consumeBonuses();
       expect(planning.bonus.hasBonus, false);
