@@ -179,6 +179,50 @@ flowchart TD
 
 ---
 
+## Workspace
+
+The workspace provides persistent file storage that survives across sessions, letting players carry forward plans and research.
+
+### Save Actions
+
+| Action | Context Cost | Produces |
+|--------|:---:|-------|
+| Save Plan | 4% | Plan file — captures current planning state |
+| Save Research | 3% | Research file — captures scouting intel |
+
+### Load Costs
+
+Loading a saved file back into the context window costs context capacity:
+
+| File Type | Base Load Cost | With File Reader Tool |
+|-----------|:---:|:---:|
+| Plan | 6% | 3% |
+| Research | 4% | 2% |
+
+The **File Reader** tool provides a 50% discount on all load costs.
+
+### Passive Bonuses (When Loaded)
+
+Loaded files provide passive bonuses as long as they remain in the context:
+
+| File Type | Bonus |
+|-----------|-------|
+| Plan | -10% spread reduction |
+| Research | +5% scout effectiveness, -5% aim cost |
+
+### New Session (N Key)
+
+Starting a new session:
+- Clears all context (user segments reset)
+- Resets all planning bonuses
+- **Unloads** all workspace files (removes from context)
+- **Keeps** all saved files in the workspace (available to reload)
+- Tools persist across sessions
+
+This lets players start fresh while retaining previously saved work for future loading.
+
+---
+
 ## Key Formulas Reference
 
 ```

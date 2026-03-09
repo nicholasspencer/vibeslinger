@@ -179,3 +179,33 @@ stateDiagram-v2
 ```
 
 **Source:** `lib/widgets/game_canvas.dart:68-82`, `lib/models/game_state.dart:68-112`
+
+---
+
+## 7. Session State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active : Session 1 starts
+    Active --> Active : fire, plan, save, load/unload
+    Active --> NewSession : New Session (N)
+    NewSession --> Active : context cleared, bonuses reset, files unloaded, session++
+```
+
+---
+
+## 8. Workspace State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Empty
+    Empty --> HasFiles : Save Plan / Save Research
+    HasFiles --> HasFiles : Save more / Load / Unload
+    HasFiles --> HasFiles : New Session (unloads all, keeps files)
+
+    state HasFiles {
+        [*] --> Unloaded
+        Unloaded --> Loaded : Load (costs context)
+        Loaded --> Unloaded : Unload (frees context)
+    }
+```
