@@ -549,17 +549,20 @@ class _SidebarPanelState extends State<SidebarPanel> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: enabled ? () {} : null,
-          icon: const Icon(Icons.visibility, size: 16),
+          onPressed: null,
+          icon: Icon(Icons.visibility, size: 16, color: enabled ? Colors.white : Colors.white38),
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Scout (S)', style: TextStyle(fontSize: 12)),
-              const Icon(Icons.arrow_drop_down, size: 18),
+              Text('Scout (S)', style: TextStyle(fontSize: 12, color: enabled ? Colors.white : Colors.white38)),
+              Icon(Icons.arrow_drop_down, size: 18, color: enabled ? Colors.white : Colors.white38),
             ],
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: enabled
+                ? const Color(0xFF8866CC).withValues(alpha: 0.7)
+                : const Color(0xFF8866CC).withValues(alpha: 0.2),
+            disabledBackgroundColor: enabled
                 ? const Color(0xFF8866CC).withValues(alpha: 0.7)
                 : const Color(0xFF8866CC).withValues(alpha: 0.2),
             foregroundColor: Colors.white,
@@ -719,20 +722,23 @@ class _SidebarPanelState extends State<SidebarPanel> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: enabled ? () {} : null,
-          icon: const Icon(Icons.build, size: 16),
+          onPressed: null,
+          icon: Icon(Icons.build, size: 16, color: enabled ? Colors.white : Colors.white38),
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Tools ${loadedCount > 0 ? "[$loadedCount]" : ""}',
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: 12, color: enabled ? Colors.white : Colors.white38),
               ),
-              const Icon(Icons.arrow_drop_down, size: 18),
+              Icon(Icons.arrow_drop_down, size: 18, color: enabled ? Colors.white : Colors.white38),
             ],
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: enabled
+                ? const Color(0xFF5599DD).withValues(alpha: 0.7)
+                : const Color(0xFF5599DD).withValues(alpha: 0.2),
+            disabledBackgroundColor: enabled
                 ? const Color(0xFF5599DD).withValues(alpha: 0.7)
                 : const Color(0xFF5599DD).withValues(alpha: 0.2),
             foregroundColor: Colors.white,
