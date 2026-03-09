@@ -549,7 +549,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: enabled ? null : null,
+          onPressed: enabled ? () {} : null,
           icon: const Icon(Icons.visibility, size: 16),
           label: Row(
             mainAxisSize: MainAxisSize.min,
@@ -719,7 +719,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: enabled ? null : null,
+          onPressed: enabled ? () {} : null,
           icon: const Icon(Icons.build, size: 16),
           label: Row(
             mainAxisSize: MainAxisSize.min,
