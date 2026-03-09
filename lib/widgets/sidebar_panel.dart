@@ -155,7 +155,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   icon: Icons.gps_fixed,
                   label: 'Focus (A)',
                   enabled: isPlanning && !isExecuting,
-                  color: Colors.cyan,
+                  color: const Color(0xFF44CC88),
                   onPressed: () {
                     if (widget.state.executePlanningAction(PlanningAction.aim)) {
                       _audio.playAim();
@@ -232,7 +232,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                         icon: Icons.map,
                         label: 'Save Plan (W)',
                         enabled: !isExecuting && !widget.state.contextWindow.isNearFull,
-                        color: const Color(0xFF8866CC),
+                        color: Colors.amber,
                         onPressed: () {
                           if (widget.state.saveToWorkspace(WorkspaceFileType.plan)) {
                             _audio.playAim();
@@ -247,7 +247,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
                         icon: Icons.science,
                         label: 'Research (E)',
                         enabled: !isExecuting && !widget.state.contextWindow.isNearFull,
-                        color: const Color(0xFF6688BB),
+                        color: const Color(0xFF8866CC),
                         onPressed: () {
                           if (widget.state.saveToWorkspace(WorkspaceFileType.research)) {
                             _audio.playScout();
@@ -505,7 +505,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
           value: PlanningAction.directScout,
           child: Row(
             children: [
-              const Icon(Icons.visibility, color: Colors.teal, size: 18),
+              const Icon(Icons.visibility, color: Color(0xFF8866CC), size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -527,7 +527,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
           value: PlanningAction.subagentScout,
           child: Row(
             children: [
-              const Icon(Icons.smart_toy, color: Colors.tealAccent, size: 18),
+              const Icon(Icons.smart_toy, color: Color(0xFFAA88EE), size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -560,8 +560,8 @@ class _SidebarPanelState extends State<SidebarPanel> {
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: enabled
-                ? Colors.teal.withValues(alpha: 0.7)
-                : Colors.teal.withValues(alpha: 0.2),
+                ? const Color(0xFF8866CC).withValues(alpha: 0.7)
+                : const Color(0xFF8866CC).withValues(alpha: 0.2),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),
@@ -597,8 +597,8 @@ class _SidebarPanelState extends State<SidebarPanel> {
   Widget _buildWorkspaceFileRow(WorkspaceFile file, int index, bool hasFileReader) {
     final icon = file.type == WorkspaceFileType.plan ? Icons.map : Icons.science;
     final color = file.type == WorkspaceFileType.plan
-        ? const Color(0xFF8866CC)
-        : const Color(0xFF6688BB);
+        ? Colors.amber
+        : const Color(0xFF8866CC);
     final cost = file.discountedLoadCost(hasFileReader: hasFileReader);
     final costPercent = (cost * 100).toStringAsFixed(0);
     final originalCost = (file.loadCost * 100).toStringAsFixed(0);
@@ -695,7 +695,7 @@ class _SidebarPanelState extends State<SidebarPanel> {
             children: [
               Icon(
                 isLoaded ? Icons.check_box : Icons.check_box_outline_blank,
-                color: isLoaded ? Colors.lime : Colors.white54,
+                color: isLoaded ? const Color(0xFF5599DD) : Colors.white54,
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -733,8 +733,8 @@ class _SidebarPanelState extends State<SidebarPanel> {
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: enabled
-                ? Colors.lime.withValues(alpha: 0.7)
-                : Colors.lime.withValues(alpha: 0.2),
+                ? const Color(0xFF5599DD).withValues(alpha: 0.7)
+                : const Color(0xFF5599DD).withValues(alpha: 0.2),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),

@@ -6,8 +6,8 @@ import 'planning.dart';
 import 'tool.dart';
 import 'workspace.dart';
 
-const _aimColor = Color(0xFF44AA88);
-const _scoutColor = Color(0xFFAACC44);
+const _aimColor = Color(0xFF44CC88);
+const _scoutColor = Color(0xFF8866CC);
 const _shotColor = Color(0xFF44CC88);
 
 class ShotResult {
