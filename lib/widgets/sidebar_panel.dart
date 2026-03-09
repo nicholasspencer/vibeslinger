@@ -3,6 +3,7 @@ import '../models/game_state.dart';
 import '../models/gun.dart';
 import '../models/planning.dart';
 import '../models/tool.dart';
+import '../models/workspace.dart';
 import '../services/audio_service.dart';
 import 'sidebar_info_page.dart';
 
@@ -106,8 +107,39 @@ class _SidebarPanelState extends State<SidebarPanel> {
               ),
               const SizedBox(height: 16),
 
-              // Planning section
-              _sectionLabel('PLANNING'),
+              // Session section
+              _sectionLabel('SESSION'),
+              _infoRow(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      _audio.playClear();
+                      widget.state.newSession();
+                      widget.onFocusFiringRange?.call();
+                    },
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(
+                      'New Session (N) — S${widget.state.workspace.sessionNumber}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white54,
+                      side: const BorderSide(color: Colors.white24),
+                    ),
+                  ),
+                ),
+                onInfo: () => _showInfo(
+                  'New Session',
+                  'Clears the context window and starts a new session. All planning bonuses reset. '
+                  'Workspace files remain saved but are unloaded — you choose what to bring back.\n\n'
+                  'Tools stay loaded (they are system-level). Session number increments.\n\n'
+                  'Maps to starting a new AI conversation — your saved artifacts persist on disk, '
+                  'but the conversation context is fresh.',
+                  accuracyImpact: 'Resets all session-level bonuses, unloads workspace files',
+                ),
+              ),
+              const SizedBox(height: 6),
               _infoRow(
                 child: _buildPlanToggle(isPlanning, () => _audio.playPlanToggle(!isPlanning)),
                 onInfo: () => _showInfo(
@@ -190,6 +222,60 @@ class _SidebarPanelState extends State<SidebarPanel> {
               const Divider(color: Colors.white24),
               const SizedBox(height: 8),
 
+              // Workspace section
+              _sectionLabel('WORKSPACE'),
+              _infoRow(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildPlanAction(
+                        icon: Icons.map,
+                        label: 'Save Plan (W)',
+                        enabled: !isExecuting && !widget.state.contextWindow.isNearFull,
+                        color: const Color(0xFF8866CC),
+                        onPressed: () {
+                          if (widget.state.saveToWorkspace(WorkspaceFileType.plan)) {
+                            _audio.playAim();
+                          }
+                          widget.onFocusFiringRange?.call();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildPlanAction(
+                        icon: Icons.science,
+                        label: 'Research (E)',
+                        enabled: !isExecuting && !widget.state.contextWindow.isNearFull,
+                        color: const Color(0xFF6688BB),
+                        onPressed: () {
+                          if (widget.state.saveToWorkspace(WorkspaceFileType.research)) {
+                            _audio.playScout();
+                          }
+                          widget.onFocusFiringRange?.call();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                onInfo: () => _showInfo(
+                  'Workspace Files',
+                  'Save insights from your session as persistent files.\n\n'
+                  '• Save Plan (4% context): Structured reasoning → -10% spread when loaded\n'
+                  '• Save Research (3% context): Raw findings → +5% scout effectiveness, -5% aim cost when loaded\n\n'
+                  'Files persist across sessions. Loading files costs context (reduced 50% by File Reader tool). '
+                  'Your workspace is unlimited, but loading too many files bloats context.\n\n'
+                  'Maps to saving conversation artifacts (plans, research notes) to the file system — '
+                  'cheap to store, but costs context to reference.',
+                  accuracyImpact: 'Save: 3-4% context cost. Load: 4-6% context (halved with File Reader)',
+                ),
+              ),
+              const SizedBox(height: 6),
+              _buildWorkspaceFileList(),
+              const SizedBox(height: 8),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 8),
+
               // Fire section
               _sectionLabel('FIRE'),
               SizedBox(
@@ -245,33 +331,14 @@ class _SidebarPanelState extends State<SidebarPanel> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-
-              // Reset
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    _audio.playClear();
-                    widget.state.clearShots();
-                    widget.onFocusFiringRange?.call();
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Reset (C)'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white54,
-                    side: const BorderSide(color: Colors.white24),
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
 
               // Keyboard hints
               const Text(
                 'Space: Fire\n'
-                'P: Plan mode\n'
+                'P: Plan mode  N: New Session\n'
                 'A: Focus  S: Scout  D: Subagent\n'
-                'X: Compact  C: Clear',
+                'X: Compact  W: Save Plan  E: Save Research',
                 style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.6),
                 textAlign: TextAlign.center,
               ),
@@ -499,6 +566,107 @@ class _SidebarPanelState extends State<SidebarPanel> {
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceFileList() {
+    final files = widget.state.workspace.files;
+    final hasFileReader = widget.state.loadedTools.contains(ToolType.fileReader);
+    if (files.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'No saved files',
+          style: TextStyle(color: Colors.white24, fontSize: 11, fontStyle: FontStyle.italic),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (int i = 0; i < files.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _buildWorkspaceFileRow(files[i], i, hasFileReader),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildWorkspaceFileRow(WorkspaceFile file, int index, bool hasFileReader) {
+    final icon = file.type == WorkspaceFileType.plan ? Icons.map : Icons.science;
+    final color = file.type == WorkspaceFileType.plan
+        ? const Color(0xFF8866CC)
+        : const Color(0xFF6688BB);
+    final cost = file.discountedLoadCost(hasFileReader: hasFileReader);
+    final costPercent = (cost * 100).toStringAsFixed(0);
+    final originalCost = (file.loadCost * 100).toStringAsFixed(0);
+    final hasDiscount = hasFileReader && cost < file.loadCost;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: file.isLoaded ? color.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              file.name,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ),
+          if (hasDiscount)
+            Text(
+              '$originalCost%',
+              style: const TextStyle(
+                color: Colors.white30,
+                fontSize: 10,
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+          if (hasDiscount) const SizedBox(width: 4),
+          Text(
+            '$costPercent%',
+            style: TextStyle(
+              color: hasDiscount ? Colors.greenAccent.withValues(alpha: 0.7) : Colors.white38,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () {
+              if (file.isLoaded) {
+                widget.state.unloadWorkspaceFile(index);
+                _audio.playToolUnload();
+              } else {
+                if (widget.state.loadWorkspaceFile(index)) {
+                  _audio.playToolLoad();
+                }
+              }
+              widget.onFocusFiringRange?.call();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: file.isLoaded ? color.withValues(alpha: 0.4) : Colors.transparent,
+                border: Border.all(color: file.isLoaded ? color : Colors.white24),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                file.isLoaded ? 'Unload' : 'Load',
+                style: TextStyle(
+                  color: file.isLoaded ? Colors.white : Colors.white54,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
