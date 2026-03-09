@@ -118,6 +118,16 @@ void main() {
       expect(ctx.heatRateMultiplier, greaterThan(1.0));
     });
 
+    test('workspace file segment type exists', () {
+      final cw = ContextWindow();
+      cw.consumeUserContext(
+        ContextSegmentType.workspaceFile, 'plan_s1.md', 0.06, const Color(0xFF8866CC),
+      );
+      final seg = cw.userSegments.where((s) => s.type == ContextSegmentType.workspaceFile).firstOrNull;
+      expect(seg, isNotNull);
+      expect(seg!.label, 'plan_s1.md');
+    });
+
     test('copy produces independent deep copy', () {
       ctx.addToolSegment('Web Search', 0.06, const Color(0xFF5599DD));
       ctx.consumeUserContext(ContextSegmentType.aim, 'Aims', 0.10, const Color(0xFF44AA88));

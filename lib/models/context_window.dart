@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ContextSegmentType { harness, tool, aim, scout, shot }
+enum ContextSegmentType { harness, tool, aim, scout, shot, workspaceFile }
 
 class ContextSegment {
   final ContextSegmentType type;
