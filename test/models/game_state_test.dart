@@ -4,6 +4,7 @@ import 'package:inference_gunslinger/models/game_state.dart';
 import 'package:inference_gunslinger/models/gun.dart';
 import 'package:inference_gunslinger/models/planning.dart';
 import 'package:inference_gunslinger/models/tool.dart';
+import 'package:inference_gunslinger/models/workspace.dart';
 
 void main() {
   group('GameState', () {
@@ -228,6 +229,94 @@ void main() {
       final result = state.executePlanningAction(PlanningAction.aim);
       expect(result, true);
       expect(state.contextWindow.isCompacted, true);
+    });
+
+    test('saveToWorkspace creates file and costs context', () {
+      state.togglePlanning();
+      final result = state.saveToWorkspace(WorkspaceFileType.plan);
+      expect(result, true);
+      expect(state.workspace.files.length, 1);
+      final seg = state.contextWindow.userSegments
+          .where((s) => s.type == ContextSegmentType.workspaceFile)
+          .firstOrNull;
+      expect(seg, isNotNull);
+    });
+
+    test('loadWorkspaceFile costs context', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      final loadBefore = state.contextWindow.userLoad;
+      state.loadWorkspaceFile(0);
+      expect(state.contextWindow.userLoad, greaterThan(loadBefore));
+      expect(state.workspace.files[0].isLoaded, true);
+    });
+
+    test('unloadWorkspaceFile frees context', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      state.loadWorkspaceFile(0);
+      final loadBefore = state.contextWindow.userLoad;
+      state.unloadWorkspaceFile(0);
+      expect(state.contextWindow.userLoad, lessThan(loadBefore));
+      expect(state.workspace.files[0].isLoaded, false);
+    });
+
+    test('loaded plan improves spread reduction in accuracy', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      final beforeLoad = state.effectiveAccuracy;
+      state.loadWorkspaceFile(0);
+      expect(state.effectiveAccuracy, greaterThan(beforeLoad));
+    });
+
+    test('loaded research reduces aim cost', () {
+      state.setSkillLevel(1.0);
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.research);
+      state.loadWorkspaceFile(0);
+      final costWithResearch = state.planning.contextCostFor(
+        PlanningAction.aim, skillLevel: state.skillLevel, aimCostReduction: state.workspace.passiveAimCostReduction,
+      );
+      expect(costWithResearch, lessThan(0.05));
+    });
+
+    test('newSession clears context and unloads files but keeps them', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      state.loadWorkspaceFile(0);
+      state.fire();
+      state.newSession();
+      expect(state.workspace.files.length, 1);
+      expect(state.workspace.files[0].isLoaded, false);
+      expect(state.contextWindow.userLoad, 0.0);
+      expect(state.shots, isEmpty);
+      expect(state.heatLevel, 0.0);
+      expect(state.workspace.sessionNumber, 2);
+    });
+
+    test('newSession keeps tools loaded', () {
+      state.loadTool(ToolType.webSearch);
+      state.newSession();
+      expect(state.loadedTools.contains(ToolType.webSearch), true);
+    });
+
+    test('file reader tool halves workspace load cost', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      state.loadTool(ToolType.fileReader);
+      final loadBefore = state.contextWindow.userLoad;
+      state.loadWorkspaceFile(0);
+      final loadAfter = state.contextWindow.userLoad;
+      expect(loadAfter - loadBefore, closeTo(0.03, 0.005));
+    });
+
+    test('firing does NOT consume workspace file bonuses', () {
+      state.togglePlanning();
+      state.saveToWorkspace(WorkspaceFileType.plan);
+      state.loadWorkspaceFile(0);
+      state.fire();
+      expect(state.workspace.files[0].isLoaded, true);
+      expect(state.workspace.passiveSpreadReduction, 0.10);
     });
   });
 }

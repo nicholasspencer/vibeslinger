@@ -34,11 +34,11 @@ class PlanningState {
 
   double _diminish(double base, int uses) => base / (1 << uses);
 
-  double contextCostFor(PlanningAction action, {double skillLevel = 1.0}) {
+  double contextCostFor(PlanningAction action, {double skillLevel = 1.0, double aimCostReduction = 0.0}) {
     final skillScale = 1.5 - skillLevel * 0.5;
     switch (action) {
       case PlanningAction.aim:
-        return 0.05 * skillScale;
+        return 0.05 * skillScale * (1.0 - aimCostReduction);
       case PlanningAction.directScout:
         return 0.08 * skillScale;
       case PlanningAction.subagentScout:

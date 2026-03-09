@@ -4,6 +4,7 @@ import 'context_window.dart';
 import 'gun.dart';
 import 'planning.dart';
 import 'tool.dart';
+import 'workspace.dart';
 
 const _aimColor = Color(0xFF44AA88);
 const _scoutColor = Color(0xFFAACC44);
@@ -26,6 +27,7 @@ class GameState extends ChangeNotifier {
   final ContextWindow _contextWindow = ContextWindow();
   final PlanningState _planning = PlanningState();
   final Set<ToolType> _loadedTools = {};
+  final WorkspaceState _workspace = WorkspaceState();
 
   Gun get selectedGun => _selectedGun;
   double get skillLevel => _skillLevel;
@@ -34,6 +36,7 @@ class GameState extends ChangeNotifier {
   ContextWindow get contextWindow => _contextWindow;
   PlanningState get planning => _planning;
   Set<ToolType> get loadedTools => Set.unmodifiable(_loadedTools);
+  WorkspaceState get workspace => _workspace;
 
   static const double _baseShotCost = 0.02;
 
@@ -50,9 +53,10 @@ class GameState extends ChangeNotifier {
   double get effectiveAccuracy {
     final base = _selectedGun.baseAccuracy + _toolAccuracyBonus;
     final aimBonus = _planning.bonus.spreadReduction * 0.3;
+    final workspaceSpreadBonus = _workspace.passiveSpreadReduction * 0.3;
     final heat = 1.0 - (_heatLevel * 0.35);
     final loadPenalty = 1.0 - (_contextWindow.loadWobblePenalty * 0.4);
-    return ((base + aimBonus) * heat * loadPenalty).clamp(0.05, 0.99);
+    return ((base + aimBonus + workspaceSpreadBonus) * heat * loadPenalty).clamp(0.05, 0.99);
   }
 
   void selectGun(Gun gun) {
@@ -67,7 +71,7 @@ class GameState extends ChangeNotifier {
 
   ShotResult fire() {
     final accuracy = effectiveAccuracy;
-    final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction - _toolSpreadBonus;
+    final spreadMultiplier = 1.0 - _planning.bonus.spreadReduction - _toolSpreadBonus - _workspace.passiveSpreadReduction;
     final spread = (1.0 - accuracy) * 2.0 * spreadMultiplier;
 
     // Bullseye check: above 80% accuracy, chance scales linearly up to ~15% at 99%
@@ -124,7 +128,8 @@ class GameState extends ChangeNotifier {
   bool executePlanningAction(PlanningAction action) {
     _autoCompactIfNeeded();
     if (_contextWindow.isNearFull) return false;
-    final cost = _planning.contextCostFor(action, skillLevel: _skillLevel);
+    final aimReduction = action == PlanningAction.aim ? _workspace.passiveAimCostReduction : 0.0;
+    final cost = _planning.contextCostFor(action, skillLevel: _skillLevel, aimCostReduction: aimReduction);
     final segType = action == PlanningAction.aim
         ? ContextSegmentType.aim
         : ContextSegmentType.scout;
@@ -216,6 +221,67 @@ class GameState extends ChangeNotifier {
     _loadedTools.clear();
     _contextWindow.reset();
     _planning.reset();
+    notifyListeners();
+  }
+
+  bool saveToWorkspace(WorkspaceFileType type) {
+    _autoCompactIfNeeded();
+    if (_contextWindow.isNearFull) return false;
+    final file = WorkspaceFile(type: type, sessionNumber: _workspace.sessionNumber);
+    if (!_contextWindow.consumeUserContext(
+      ContextSegmentType.workspaceFile, 'Save ${type.name}', file.saveCost, const Color(0xFF8866CC),
+    )) return false;
+    _workspace.saveFile(type);
+    notifyListeners();
+    return true;
+  }
+
+  bool loadWorkspaceFile(int index) {
+    if (index < 0 || index >= _workspace.files.length) return false;
+    final file = _workspace.files[index];
+    if (file.isLoaded) return false;
+    _autoCompactIfNeeded();
+    if (_contextWindow.isNearFull) return false;
+    final cost = file.discountedLoadCost(hasFileReader: _loadedTools.contains(ToolType.fileReader));
+    if (!_contextWindow.consumeUserContext(
+      ContextSegmentType.workspaceFile, file.name, cost, const Color(0xFF8866CC),
+    )) return false;
+    _workspace.loadFile(index);
+    notifyListeners();
+    return true;
+  }
+
+  bool unloadWorkspaceFile(int index) {
+    if (index < 0 || index >= _workspace.files.length) return false;
+    final file = _workspace.files[index];
+    if (!file.isLoaded) return false;
+    final cost = file.discountedLoadCost(hasFileReader: _loadedTools.contains(ToolType.fileReader));
+    final seg = _contextWindow.userSegments
+        .where((s) => s.type == ContextSegmentType.workspaceFile)
+        .firstOrNull;
+    if (seg != null) {
+      seg.amount = (seg.amount - cost).clamp(0.0, 1.0);
+      if (seg.amount < 0.001) {
+        _contextWindow.userSegments.removeWhere(
+          (s) => s.type == ContextSegmentType.workspaceFile && s.amount < 0.001,
+        );
+      }
+    }
+    _workspace.unloadFile(index);
+    notifyListeners();
+    return true;
+  }
+
+  void newSession() {
+    _shots.clear();
+    _heatLevel = 0.0;
+    _contextWindow.reset();
+    for (final type in _loadedTools) {
+      final tool = Tool.all.firstWhere((t) => t.type == type);
+      _contextWindow.addToolSegment(tool.name, tool.systemCost, const Color(0xFF5599DD));
+    }
+    _planning.reset();
+    _workspace.newSession();
     notifyListeners();
   }
 
