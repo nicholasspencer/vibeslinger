@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/game_state.dart';
 import '../models/planning.dart';
+import '../models/workspace.dart';
 import '../painters/stick_figure_painter.dart';
 import '../painters/target_painter.dart';
 import '../services/audio_service.dart';
@@ -130,9 +131,9 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
                 if (_isRapidFiring) stopRapidFire();
               }
             } else if (event is KeyDownEvent) {
-              if (key == LogicalKeyboardKey.keyC) {
+              if (key == LogicalKeyboardKey.keyN) {
                 _audio.playClear();
-                widget.state.clearShots();
+                widget.state.newSession();
               }
               if (key == LogicalKeyboardKey.keyP) {
                 _audio.playPlanToggle(!widget.state.planning.isPlanning);
@@ -158,6 +159,12 @@ class FiringRangeState extends State<FiringRange> with TickerProviderStateMixin 
               if (key == LogicalKeyboardKey.keyX) {
                 _audio.playCompact();
                 widget.state.compact();
+              }
+              if (key == LogicalKeyboardKey.keyW) {
+                widget.state.saveToWorkspace(WorkspaceFileType.plan);
+              }
+              if (key == LogicalKeyboardKey.keyE) {
+                widget.state.saveToWorkspace(WorkspaceFileType.research);
               }
             }
           },
